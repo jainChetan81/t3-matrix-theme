@@ -1,0 +1,8 @@
+Honest reaction: these look good, but where is the rain? That's the whole point of the theme. C is tasteful but it's a different thing — I don't want "calm with a hint of rain", I want it to actually feel like the screen is inside the digital rain. Go much bolder.
+
+Round 2 — what I want:
+- The rain is the hero and always visible. Get as close as you can to my reference page (https://chetan-examples.vercel.app/matrix): bright head glyph, fading trails, columns falling at different speeds and offsets, glyphs that flicker/mutate. Depth helps: a far, dim, slow layer and a nearer brighter one. It should be visible in the conversation area, the empty new-thread screen and the sidebar's empty space — reading surfaces just get enough backing to stay legible.
+- Go beyond the rain. Make the whole app feel a bit possessed, like a living terminal: glitch/flicker moments, phosphor glow, scanlines/CRT feel, "decoding" shimmer on things that are running, a terminal-style composer (prompt prefix, block caret), code blocks as CRT panes, glowing scrollbars, selection and icons, maybe a one-time boot/scan sweep when a thread opens. Surprise me — look for ideas beyond the obvious rain too.
+- Same hard conditions as before (CSS + embedded data: SVG only, ~20,000 CSS chars total, stable hooks only, no JS). Performance still matters: favour transform/opacity animation on a few composited layers, and keep a fully static Reduce Motion fallback. Spend the budget on the rain rather than on idle calm.
+
+Give me 2–3 bold directions on the canvas (full window each, plus the new-thread screen), then your pick. Keep text readable for long sessions.

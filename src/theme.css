@@ -1,0 +1,256 @@
+/* Matrix for T3 Code: digital rain in the margins, a quiet terminal in the middle.
+   build.py replaces each svg placeholder with that file from src/ as a data: URL.
+   Perf rules: every looping animation is a transform on its own layer (compositor only),
+   exactly two loop (the rain layers), nothing loops inside the SVG, no filters, no text glow. */
+
+:root {
+  --g: #0affa0;
+  --hi: #e0efe6;
+  --line: #192821;
+  --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --rain: url("{{svg:rain}}");
+  scrollbar-color: #4a6b5a transparent;
+}
+
+::selection { background: #0affa040; color: inherit; }
+
+/* ---------- rain ---------- */
+[data-workspace-area="conversation"] {
+  position: relative;
+  isolation: isolate;
+  overflow: clip;
+  /* T3 sets the lane insets inline on this element when a preview panel overlaps the chat */
+  --i: var(--chat-lane-inset-start, 0px);
+  --j: var(--chat-lane-inset-end, 0px);
+  /* centre line to the edge of the reading column, plus a gutter the rain never enters */
+  --e: calc(var(--chat-content-max-width, 46rem) / 2 + 32px);
+  /* free margin on each side; zero or less when the chat width is "full" */
+  --m: calc(50% - (var(--i) + var(--j)) / 2 - var(--e));
+}
+[data-workspace-area="conversation"]::before,
+[data-workspace-area="conversation"]::after {
+  content: "";
+  position: absolute;
+  top: -650px;
+  bottom: 0;
+  /* a margin under 96px gets no rain at all: the product goes negative and clamps to 0 */
+  width: clamp(0px, (var(--m) - 96px) * 999, var(--w, var(--m)));
+  z-index: -1;
+  pointer-events: none;
+  background: var(--rain) 0 0 / 1000px 650px;
+  will-change: transform;
+  transition: opacity .6s;
+  /* the mask only varies along x, so it can ride the vertical transform */
+  -webkit-mask-image: linear-gradient(var(--d), #000 25%, transparent 96%);
+}
+/* one layer per margin, mirrored: different speed, phase and tile offset, fading toward the column */
+[data-workspace-area="conversation"]::before {
+  left: var(--i);
+  --d: 90deg;
+  opacity: .46;
+  animation: rn 7.8s steps(26) infinite;
+}
+[data-workspace-area="conversation"]::after {
+  right: var(--j);
+  --d: 270deg;
+  background-position: right -565px top 0;
+  opacity: .4;
+  animation: rn 10.4s steps(26) -4s infinite;
+}
+@keyframes rn { to { transform: translateY(650px); } }
+
+/* new thread (a conversation with no rows yet): each layer takes half the area and
+   thins out behind the centred composer and heading. Still two animations. */
+[data-workspace-area="conversation"]:not(:has([data-timeline-row-kind], [data-timeline-loading]))::before,
+[data-workspace-area="conversation"]:not(:has([data-timeline-row-kind], [data-timeline-loading]))::after {
+  --w: calc(50% - (var(--i) + var(--j)) / 2);
+  -webkit-mask-image: linear-gradient(var(--d), #000 12%, #0003 calc(100% - var(--e)), #0001);
+}
+
+/* a zero-width layer still animates (and is re-styled on every main frame), so drop the layers
+   where the window itself cannot hold a 96px margin: lane + 2 * (96px + 32px) */
+@media (max-width: 62rem) {
+  [data-workspace-area="conversation"]::before, [data-workspace-area="conversation"]::after { display: none; }
+}
+@media (max-width: 88rem) {
+  [data-chat-width="wide"] [data-workspace-area="conversation"]::before, [data-chat-width="wide"] [data-workspace-area="conversation"]::after { display: none; }
+}
+[data-chat-width="full"] [data-workspace-area="conversation"]::before, [data-chat-width="full"] [data-workspace-area="conversation"]::after { display: none; }
+
+/* the rain backs off while you type: composer focused and not empty */
+:root:has(.composer-tiptap:focus):not(:has(.composer-tiptap > p:only-child > br:only-child)) [data-workspace-area="conversation"]::before,
+:root:has(.composer-tiptap:focus):not(:has(.composer-tiptap > p:only-child > br:only-child)) [data-workspace-area="conversation"]::after { opacity: .16; }
+
+/* ---------- header ---------- */
+[data-chat-header] { background: #060c0a !important; border-bottom: 1px solid var(--line); }
+/* the current breadcrumb part: one short glitch when a thread opens, then it stays still */
+[data-chat-header] li[aria-current="page"] [data-slot="workspace-breadcrumb-text"] {
+  color: var(--hi);
+  letter-spacing: .01em;
+  animation: gl .45s steps(1) .5s 1;
+}
+@keyframes gl {
+  0% { transform: translate(3px, -1px) skewX(-10deg); opacity: .6; }
+  35% { transform: translate(-2px, 1px); opacity: .85; color: var(--g); }
+  70% { transform: translate(1px); }
+}
+
+/* ---------- user message: a quiet terminal entry ---------- */
+[data-user-message-bubble] {
+  background: #0f1c17 !important;
+  color: #d2e5da;
+  border: 1px solid #0affa02e !important;
+  border-radius: 12px 12px 3px 12px;
+  font-family: var(--mono);
+  font-size: .93em;
+  line-height: 1.6;
+}
+
+/* ---------- assistant markdown ---------- */
+[data-message-role="assistant"] .chat-markdown { line-height: 1.65; color: #c6dbcf; }
+[data-message-role="assistant"] .chat-markdown :is(strong, b) { color: var(--hi); font-weight: 600; }
+[data-message-role="assistant"] .chat-markdown :is(h1, h2, h3, h4) { color: var(--hi); font-weight: 600; letter-spacing: .01em; }
+[data-message-role="assistant"] .chat-markdown :is(h1, h2, h3)::before { content: "# "; color: #0affa0b3; font-family: var(--mono); }
+[data-message-role="assistant"] .chat-markdown :not(pre) > code {
+  color: #a9eccb;
+  background: #0affa012;
+  border: 1px solid #0affa01f;
+  border-radius: 4px;
+  padding: .08em .35em;
+  font-size: .88em;
+}
+[data-message-role="assistant"] .chat-markdown a { color: #5fe3b0; text-decoration: underline 1px #0affa059; text-underline-offset: 3px; }
+[data-message-role="assistant"] .chat-markdown a:hover { color: var(--g); text-decoration-color: var(--g); }
+[data-message-role="assistant"] .chat-markdown li::marker { color: #0affa099; }
+[data-message-role="assistant"] .chat-markdown blockquote {
+  border-left: 2px solid #0affa04d;
+  background: #0affa008;
+  color: #a3bcae;
+  border-radius: 0 6px 6px 0;
+  padding: .4em 1em;
+}
+[data-message-role="assistant"] .chat-markdown hr { border: 0; border-top: 1px solid var(--line); }
+[data-message-role="assistant"] .chat-markdown th { color: var(--hi); background: #0b1411; }
+[data-message-role="assistant"] .chat-markdown :is(th, td) { border-color: var(--line); }
+
+/* ---------- code: a calm CRT pane ---------- */
+.chat-markdown-codeblock {
+  position: relative;
+  overflow: hidden;
+  background: #040907 !important;
+  border: 1px solid #1c2c25;
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 #0affa033, inset 0 0 28px #0affa00a;
+}
+.chat-markdown-codeblock pre { line-height: 1.6; }
+/* faint static scanlines */
+.chat-markdown-codeblock::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(transparent 0 2px, #0000001f 2px 3px);
+}
+
+/* ---------- composer: prompt and block caret ---------- */
+/* T3 draws the card outline as a ring on ::after; recolour it instead of adding a border */
+[data-slot="composer-host"] {
+  --chat-composer-outline: #2a4034;
+  background: #0c1714 !important;
+  box-shadow: 0 8px 24px #0006;
+}
+[data-slot="composer-host"]:focus-within {
+  --chat-composer-outline: #0affa073;
+  box-shadow: 0 0 0 3px #0affa010, 0 8px 24px #0006;
+}
+.composer-tiptap { caret-color: var(--g); font-family: var(--mono); }
+/* the editor and its placeholder share a grandparent: the prompt sits on it and both shift right */
+[data-chat-composer-form] :has(> * > .composer-tiptap) { padding-left: 1.5em; }
+[data-chat-composer-form] :has(> * > .composer-tiptap) > .pointer-events-none { padding-left: 2.5em; font-family: var(--mono); }
+[data-chat-composer-form] :has(> * > .composer-tiptap)::before {
+  /* drawn, not typed: a "❯" glyph is missing from some system fonts */
+  content: "";
+  position: absolute;
+  left: 0;
+  top: .2em;
+  width: .8em;
+  height: 1.15em;
+  background: url("{{svg:prompt}}") center / contain no-repeat;
+}
+/* empty editor: a block caret instead of the bar */
+.composer-tiptap:has(> p:only-child > br:only-child) { caret-color: transparent; }
+[data-chat-composer-form] :has(> * > .composer-tiptap > p:only-child > br:only-child)::after {
+  content: "";
+  position: absolute;
+  left: 1.5em;
+  top: .2em;
+  width: .55em;
+  height: 1.15em;
+  background: var(--g);
+  opacity: .45;
+}
+/* on focus it blinks ten times (11 s), then stays lit */
+[data-chat-composer-form] :has(> * > .composer-tiptap:focus > p:only-child > br:only-child)::after {
+  opacity: 1;
+  animation: bl 1.1s steps(1) 10;
+}
+@keyframes bl { 50% { opacity: 0; } }
+
+/* ---------- sidebar ---------- */
+[data-slot="sidebar-inner"] { border-right: 1px solid #131f1a; }
+[data-thread-item] > [role="button"] { border-radius: 6px; transition: background-color .3s; }
+[data-thread-item] > [role="button"]:hover { background-color: #0affa00d; transition-duration: 0s; }
+[data-thread-item] > [aria-current="page"] {
+  background-color: #0affa014 !important;
+  box-shadow: inset 2px 0 0 var(--g);
+  color: var(--hi);
+}
+[data-slot="project-monogram"] { border-radius: 5px; box-shadow: 0 0 0 1px #0affa040; }
+[data-slot="project-monogram"] svg { color: #0affa0d9 !important; }
+svg.lucide { stroke-width: 1.6; }
+
+/* ---------- terminal ---------- */
+[data-thread-terminal-drawer] { border-top: 1px solid #0affa040 !important; background: #040907; }
+
+/* ---------- overlays: dark panels with a green hairline ---------- */
+[data-slot="tooltip-popup"] {
+  background: #101b17 !important;
+  color: #c6dbcf !important;
+  border: 1px solid #0affa033;
+  border-radius: 6px;
+  font-family: var(--mono);
+}
+:is([data-slot="menu-popup"], [data-slot="popover-popup"]) {
+  background: #0c1714 !important;
+  border: 1px solid #22342c;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px #000a !important;
+}
+[data-slot="dialog-popup"] {
+  background: #0b1411 !important;
+  border: 1px solid #0affa026;
+  border-radius: 14px;
+  box-shadow: 0 24px 64px #000c !important;
+}
+
+/* ---------- controls ---------- */
+:is([data-slot="input"], [data-slot="select-trigger"]):focus-visible {
+  outline: none;
+  border-color: #0affa080;
+  box-shadow: 0 0 0 3px #0affa014 !important;
+}
+[data-slot="switch"][data-checked] { background: #0bc982 !important; }
+[data-slot="button"]:focus-visible { outline: 1px solid #0affa0b3; outline-offset: 2px; }
+
+/* native scrollbars take their colour from scrollbar-color on :root; size and overlay behaviour stay T3's */
+[data-slot="scroll-area-thumb"] { background: #4a6b5a !important; }
+[data-slot="scroll-area-thumb"]:hover { background: #6f8f7d !important; }
+
+/* ---------- reduced motion: the theme's own motion off (the rain stays as a still image) ---------- */
+@media (prefers-reduced-motion: reduce) {
+  [data-workspace-area="conversation"]::before,
+  [data-workspace-area="conversation"]::after,
+  [data-chat-header] [data-slot="workspace-breadcrumb-text"],
+  [data-chat-composer-form] :has(> * > .composer-tiptap)::after,
+  [data-thread-item] > [role="button"] { animation: none !important; transition: none !important; }
+}

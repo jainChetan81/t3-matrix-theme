@@ -1,0 +1,22 @@
+I want a Matrix / digital-rain theme for T3 Code, a desktop app where you chat with coding agents. Explore a few different directions as mockups, and feel free to experiment — I'd rather see a range of ideas than one safe take.
+
+Mood reference: a page I made, https://chetan-examples.vercel.app/matrix — full-screen falling katakana + digits in #0affa0 on black, 25px monospace columns, each column's head redrawn every frame over a 5% black fade so trails dim behind it. I like how it looks, but in the app it has to stay calm enough to work in all day.
+
+What the app looks like (each mockup should show the whole window):
+- Left sidebar: project groups with small letter monogram tiles, and thread rows under each (title, relative time, a running/unread state). A New thread button and Settings at the bottom.
+- Main area: a chat header (thread title, a few icon buttons), then the conversation timeline. User messages are right-aligned bubbles. Assistant replies are plain markdown text (headings, lists, inline code) with fenced code blocks, plus collapsible "work" rows that log tool calls (ran a command, edited a file).
+- Composer pinned at the bottom: a rounded card with a text field, model picker, attach button and send button.
+- A terminal drawer that can slide up from the bottom.
+- An empty new-thread screen with just the composer centered.
+- Settings page, dialogs, menus, tooltips use the same tokens.
+
+How the theme is built — these are the real conditions, so designs need to fit them:
+- It's a theme file: about 60 color roles (canvas, sidebar, surface, text, muted text, border, accent, message surface, code background/foreground, terminal colors, etc.) plus up to 20,000 characters of CSS applied over the app's own styles.
+- No JavaScript and no canvas. Motion can only come from CSS animations or SVG animation inside an embedded data: SVG (no external fonts or images; system monospace only). Any background art should be roughly 10 KB or less.
+- CSS can only target stable hooks: sidebar, thread row, project monogram, chat header, conversation area (behind messages), message rows by role, user bubble, assistant markdown, code block, composer form and card, terminal drawer, settings page, buttons, inputs, switches, selects, dialogs, popovers, menus, tooltips, scrollbars, and lucide icons (stroke width etc.). No new DOM elements — only backgrounds, borders, shadows, pseudo-elements, filters on those.
+- Performance matters: it runs all day next to heavy agent sessions. Prefer transform/opacity-only animation, few animated layers, nothing that repaints the whole window every frame, and a prefers-reduced-motion fallback that is fully static.
+- Text readability comes first: code and long replies must be comfortable to read for hours. The rain should be atmosphere, not competition.
+- Dark is the main mode; a light variant is a nice-to-have.
+- Stay original: evoke digital rain and green phosphor terminals, but no film names, logos, characters or quotes.
+
+Show me 3–4 distinct directions side by side, each with its palette, how the rain/background behaves, and how bubbles, code blocks, composer and sidebar look. Then tell me which you'd pick and why.
