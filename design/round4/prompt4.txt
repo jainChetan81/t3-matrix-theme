@@ -1,0 +1,44 @@
+Round 4. Possessed stays the base look, unchanged. This round adds a small living glyph at the composer ("the Watcher"), a few more Matrix touches, and a tidy-up of this canvas. Same medium as before: the real theme is one JSON file of colour roles plus CSS, so everything must be CSS + inline data: SVG only. No JS, no fonts, no raster images, no audio, no @import.
+
+1. Tidy the canvas (do not delete anything)
+The canvas has pages "Round 1", "Round 2" and "Final · Possessed". Make it read clearly: keep "Final · Possessed" as the first, prominent page; rename the older pages so they are obviously archive ("Archive · Round 1", "Archive · Round 2") and move them after it; add a new page "Round 4 · Watcher + Matrix" for this round's boards, placed right after the Possessed page. If you can't reorder or rename pages, say so and just add the new page.
+
+2. The Watcher (board A: "Watcher — concepts and states")
+Not a cute mascot. Think of the small animated brand glyphs that Codex, ChatGPT and Claude show while they think: a living icon, 20–32 px, drawn in the Possessed palette (#0affa0 accent, #010803 canvas, near-white heads, red #ff2d6f only for error). It sits on the top edge of the composer card, left side, half overlapping the border like a seal on the edge, and it watches. It reacts to app state, deterministically:
+- idle: dormant. Still, or one very slow breath.
+- composer focused: wakes and looks at you.
+- typing (composer has text): follows or flickers with the input.
+- agent working / streaming: decoding. Glyphs cycle, it scans; a small "bullet time" ripple is welcome.
+- done: settles back.
+- error: glitches red briefly, once, then recovers.
+- reduced motion: a static pose per state, no animation.
+Explore four concepts, each as one SVG plus a CSS state sheet, and show every state of every concept side by side in a grid (rows = concepts, columns = the seven states), at 1× and at 4× so I can judge the drawing:
+  a. Glyph core: a tiny column or 3×3 cell of falling katakana with a white head.
+  b. Sentinel eye: the machine eye, a lens with an iris that opens, tracks and scans.
+  c. Lens: one sunglass lens with a green code reflection sliding across it.
+  d. White rabbit, or a ringing phone-booth glyph: your choice of whichever draws better at 24 px.
+Then pick one, say why, and show it larger in place on a real Possessed composer in each state (board B: "Watcher — in place").
+How it must be built, because this is what the theme can do:
+- It is a pseudo-element (::before or ::after) of the composer card or its wrapper, with the SVG as a data: URI background. The composer card's ::before is already the ❯ prompt and the input's block caret is taken, so use the card's ::after or a wrapper pseudo and tell me which.
+- A pseudo has no children, so states are made by swapping the background image (one small SVG per state, or one sprite strip moved with background-position in steps()), plus transform/opacity animation on the pseudo itself. SVG-internal SMIL/CSS animation inside the data: SVG is fine at this size (the 14 px spinner already does it) and is the easy way to get the cycling glyphs and the iris.
+- State selectors available in the real app (use placeholders @{…} like the Possessed kit; I'll map them):
+  @{composer-input}:focus — focused
+  @{composer-card}:has(@{composer-input} p:not(:has(> br:only-child))) or similar "editor has text" — typing. The editor is a contenteditable (ProseMirror) whose empty state is <p><br></p>. CSS can't see keystrokes, so "follows the input" has to be a loop or a state pose, not per-key.
+  :root:has([data-streaming="true"]) — the agent's reply is streaming
+  :root:has([data-thread-now-line]) — the thread is working (tool calls, thinking)
+  :root:has(@{error-alert}) — an error alert is on screen
+  "done" has no hook of its own: it is whatever plays when the streaming/working selector stops matching, so make it a one-shot settle on the idle/focused state.
+- Deterministic: same state, same picture. No randomness, nothing that depends on timing luck.
+- Calm enough to sit in the corner of my eye all day. Working is the only state that may loop; idle may have one very slow loop at most or none; everything else is one-shot.
+
+3. More Matrix (board C: "Matrix touches — thread", board D: "Matrix touches — new thread")
+Mine the four films for small touches that work in CSS and keep the UI readable. Candidates: bullet time (while the agent streams, the rain slows or freezes and faint ripple rings expand from the newest message or the Watcher); red pill / blue pill for a destructive vs. safe confirm pair in dialogs; a typed-on empty state on the new-thread screen ("Wake up, Neo…", "The Matrix has you…", "Follow the white rabbit.", "Knock, knock."); déjà vu (a row duplicates or shifts for a frame, once, when a thread opens or a message repeats); "there is no spoon" (a slight bend on hover somewhere small); green sunglasses reflection on code panes; the Construct (white loading room) for dialogs; Sentinel scan; phone-booth exit when a thread closes; the Oracle's cookie. Choose the best three to five, not all of them. Reject the ones that would hurt reading or cost too much, and say which and why. Apply the chosen ones to the Possessed thread view (streaming state, with the Watcher working) and the Possessed new-thread view (with the Watcher idle/focused), and show a confirm dialog if you pick the pills. Music is out; a theme can't play audio.
+
+4. Limits
+- Budget: the whole theme is ≤ 20,000 characters of CSS including the inlined SVGs. Possessed already uses 14,735. Everything new in this round (Watcher SVGs + state CSS + the Matrix touches) must fit in about 4,500 characters. Give me the measured count per piece and the total.
+- Performance: animate transform and opacity only; steps() where it suits; no filter, blur or backdrop-filter; no animated box-shadow or text-shadow; no text-shadow on body or code text; no new always-on loops except the Watcher's working state (and at most one very slow idle loop). One-shot effects must end. Bullet time should change the existing two rain layers (slow them or pause them with animation-play-state, or swap duration), not add layers. Ripple rings: one or two pseudo-elements scaling with opacity, only while streaming.
+- prefers-reduced-motion: everything still; the Watcher shows a static pose per state.
+- Readability first: nothing may sit over prose, code or the text I'm typing.
+
+5. Deliverables in the files
+Like the Possessed kit: src/watcher.svg (or one SVG per state, each kept whole and readable), src/round4.css with the Watcher rules and the Matrix-touch rules using @{hook} placeholders, any new hooks added to hooks.json, the build updated so it reports the new total, and a short README section listing each state → selector → what plays, each touch → selector → what plays, chars per piece, and what you rejected. Keep it lower-case and brief like the last README.

@@ -1,0 +1,95 @@
+Claude responded: I'll check the current state first, because files and the canvas may have changed during the pause.
+Building inline demo boards with the eye states and checking them in a real-CSS harness
+
+Building inline demo boards with the eye states and checking them in a real-CSS harness
+
+I’ll check the current state first, because files and the canvas may have changed during the pause. Then the order of work: tidy the pages, draw the four Watcher concepts, write round4.css with the build counting each piece, check the real CSS in Chrome, and publish the boards.
+
+Created 3 files, ran 4 commands, and 3 more steps
+
+Created 3 files, ran 4 commands, and 3 more steps
+
+T3 Code digital-rain theme
+Claude Design
+·Only you
+
+
+That’s 4,693, still 193 over. I’ll drop “there is no spoon” (129 chars for a hover bend on a 20px tile nobody hovers) and trim two keyframe blocks.
+
+Created 2 files, shared 2 files, and 41 more steps
+
++10
+Read F.png
+Read F.png
+Read D.png
+Created 2 files, shared 2 files, and 41 more steps
+
+round 4 is finished and the canvas is tidied. you can reorder and rename pages, so the order is now final · possessed, round 4 · watcher + matrix, archive · round 1, archive · round 2. no board was deleted. the round-1 boards had no page tag, so i tagged them explicitly to keep them in the archive. the kit is in possessed-theme.zip, and the built theme is possessed.css.
+
+the watcher: i picked b, the sentinel eye
+
+it reads without motion. shut, looking at you, glancing at your text, and red are four different drawings, so each state is clear even under reduced motion.
+it’s the only concept that can literally watch you. focused means the eye is open and looking straight out.
+it holds up at 26px. the glyph core turns to mush at 1×, the lens can’t show where it’s looking, and the rabbit drifts toward the cute mascot you didn’t want.
+
+it lives on the composer form’s ::before. the card’s ::after is already the block caret, so the red error copy goes on the form’s ::after, which bullet time also uses for its ripple. working is the only state that loops, and that loop runs inside its own small svg. done has no hook of its own: when working stops, the idle or focused rule replays its one-shot, and that replay is the settle. board a shows all four concepts in all seven states at 1× and 4×. board b shows the eye in place on the composer. on the canvas, one-shots repeat every 4 s so you can see them; in the theme they play once.
+
+matrix touches: four kept, seven rejected
+
+kept:
+bullet time: while a reply streams, both existing rain layers pause and one ring rises from the watcher, staying above the card.
+“Wake up, Neo…”: the new-thread placeholder types itself on once.
+déjà vu: the newest row jumps 6px for one 120 ms beat.
+red pill / blue pill: on confirm dialogs. measured behind the labels in chrome, contrast is 6.6:1 for red and 7.6:1 for blue.
+rejected:
+sunglasses reflection and sentinel scan: both would sweep over code or prose.
+the construct: a white flash on a black app.
+phone-booth exit: css can’t animate an element being removed.
+the oracle’s cookie: no state to attach it to.
+music: a theme can’t play audio.
+there is no spoon: i built it, then cut it for budget.
+
+budget
+
+piece	chars
+watcher (1,221 rules + 1,790 svg)	3,011
+bullet time	493
+wake up	474
+déjà vu	154
+pills	483
+round 4 total	4,615
+whole theme	19,426 / 20,000
+
+round 4 runs 115 over your ~4,500. most of that comes from the structural empty-editor selector and the pill contrast fix. the counts use my placeholder selectors, so rebuild after filling in hooks.json to get the real number.
+
+things i found and fixed
+
+your typing selector doesn’t work. chrome rejects :has(… p:not(:has(> br:only-child))) because :has() can’t nest inside :has(). i used :not(:has(…empty line…)) instead, and confirmed in chrome that the watcher switches to typing once the first character removes the <br>.
+possessed’s block caret could never show in t3 code. it was keyed to :placeholder-shown, which a contenteditable never matches. i moved it to the empty-line hook. the look is the same, and possessed grows 18 chars.
+base64 is no longer possible. with four svgs inlined, base64 would take the theme to 23,799 chars, so the data: uris have to stay raw utf-8.
+the final · possessed boards had a preview bug. their far and still rain layers showed horizontal rows on the canvas. the real css was never affected. i regenerated those three boards with the look unchanged.
+
+the round-4 build check board shows the real possessed.css in chrome: every watcher state at 4×, with and without reduced motion (0 animations running under reduced motion), plus the three touch screens.
+
+assumptions to check against t3 code
+
+placeholder: “Wake up, Neo…” assumes the editor draws its placeholder as the empty <p>’s ::before. if t3 code renders it as a separate element, both will show.
+déjà vu: it fires on every new last row, not only when a thread opens.
+watcher position: the offsets assume the card sits at the top-left of the form.
+
+Possessed theme
+ZIP
+
+
+Possessed
+Code
+·CSS
+
+
+Download all
+
+
+
+
+
+12 minutes ago

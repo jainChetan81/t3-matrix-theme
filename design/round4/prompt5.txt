@@ -1,0 +1,14 @@
+Good round. The sentinel eye is the right pick and the four touches are the right four. A few fixes, then it's final. Update the same boards and files in place; don't add new pages.
+
+1. Watcher size and weight. At 1× (26 px) it is a little faint next to the composer border, and the katakana inside the working eye is mush. Make it 30 px, with strokes about 15% heavier, and keep the disc opaque so the card border never shows through it. For working, keep one cycling glyph in the iris but make it a single bold glyph that fills the iris (no surrounding ticks), so it reads at 1×. Idle must be completely still (shut eye, no breath).
+
+2. Bullet time is too long as designed. A reply can stream for minutes, and a fully frozen field for minutes just looks broken. Change it to: while streaming, the near rain layer pauses and the far layer keeps falling. That gives the parallax "time slowed" feel and the screen stays alive. Keep the single ring from the Watcher, but it should fire a small finite number of times when streaming starts (2 or 3 rings), not loop for the whole stream.
+
+3. Hooks that match the real app (the timeline is a virtualised list, so every row is the only child of its wrapper and :last-child / :nth-last-child are always true and useless):
+- déjà vu must be keyed to the streaming hook appearing: the row that contains [data-streaming="true"] jumps once when the attribute appears. Use a hook @{streaming} for [data-streaming="true"] and @{message-row}:has(@{streaming}). It must not replay on text updates and must not fire on every row when a thread opens.
+- Watcher working = :root:has(@{streaming}) or :root:has(@{working}) where @{working} is [data-thread-now-line]. Bullet time = streaming only.
+- Don't rely on the composer card being the first child of the form for the Watcher's position; anchor the pseudo to the element it belongs to (position: relative on that element, the pseudo at top: -15px; left: 14px) and tell me which element.
+
+4. Budget. The count uses short placeholder selectors; the real ones are longer, so I need headroom. Bring round 4 down to 4,000 characters or less (whole theme ≤ 18,800 with placeholders) without dropping a state or a touch. Ideas: share one keyframe between the Watcher's wake and settle, draw the error eye by reusing the focused SVG with a red overlay or a shorter SVG, shorten the pill gradients. Report the new per-piece table.
+
+5. On board B add the 1× size next to each state (the real 30 px on a real-size composer), since that's what I'll actually see.

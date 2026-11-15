@@ -1,0 +1,267 @@
+/* Possessed: digital rain + live phosphor terminal.
+   @{name} is a hook placeholder. build.mjs swaps each one for the selector in hooks.json,
+   inlines rain.svg and spinner.svg, minifies, and fails above 20,000 chars. */
+
+:root {
+  --g: #0affa0;
+  --ink: #00140a;
+  --bg: #010803;
+  --rain: url(rain.svg);
+  --spin: url(spinner.svg);
+}
+
+::selection { background: var(--g); color: var(--ink); }
+
+/* ---------- rain: one tile, three depths ---------- */
+/* still field: the tile at 40%, dimmed by a flat wash. Painted once. */
+@{conversation}, @{sidebar} {
+  position: relative;
+  isolation: isolate;
+  contain: paint;
+  background: linear-gradient(#010803d4, #010803d4), var(--rain) 0 0 / 400px 260px, var(--bg) !important;
+}
+@{conversation}::before, @{conversation}::after, @{sidebar}::before, @{sidebar}::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  background: var(--rain);
+  will-change: transform;
+  transition: opacity .4s;
+}
+/* near: 100%, 25px cells, one cell per step, 176 px/s */
+@{conversation}::before, @{sidebar}::before {
+  top: -650px;
+  z-index: -1;
+  background-size: 1000px 650px;
+  background-position-x: -230px;
+  opacity: .6;
+  animation: rn 3.7s steps(26) infinite;
+}
+/* far: 60%, 15px cells, 48 px/s, behind near */
+@{conversation}::after, @{sidebar}::after {
+  top: -390px;
+  z-index: -2;
+  background-size: 600px 390px;
+  background-position-x: -90px;
+  opacity: .42;
+  animation: rf 8.1s steps(26) infinite;
+}
+@{sidebar}::before { background-position-x: -640px; opacity: .42; }
+@{sidebar}::after { background-position-x: -300px; opacity: .3; }
+@keyframes rn { to { transform: translateY(650px); } }
+@keyframes rf { to { transform: translateY(390px); } }
+
+/* the rain backs off while you type */
+:root:has(@{composer-input}:focus) :is(@{conversation}, @{sidebar})::before { opacity: .26; }
+:root:has(@{composer-input}:focus) :is(@{conversation}, @{sidebar})::after { opacity: .2; }
+
+/* ---------- reading pockets ---------- */
+@{message-row-assistant} {
+  background: #010803de;
+  box-shadow: 0 0 34px 26px #010803de;
+  border-radius: 12px;
+}
+@{assistant-markdown} :is(h1, h2, h3) { text-shadow: 0 0 12px #0affa073; }
+@{assistant-markdown} :is(h1, h2, h3)::before { content: "# "; color: var(--g); }
+@{assistant-markdown} :not(pre) > code {
+  color: #c9ffe4;
+  background: #0affa01a;
+  text-shadow: 0 0 6px #0affa066;
+}
+@{user-bubble} {
+  background: #03160b !important;
+  border: 1px solid #0affa061;
+  border-radius: 10px;
+  box-shadow: 0 0 18px #0affa024, inset 0 0 12px #0affa00f;
+  font-family: ui-monospace, monospace;
+}
+
+/* ---------- boot: a row flickers in and a scan line wipes down it, once per mount ---------- */
+@{message-row} { position: relative; animation: boot .55s steps(1) both; }
+@{message-row}::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(transparent 80%, #0affa02e 96%, var(--g));
+  transform-origin: top;
+  opacity: 0;
+  animation: sweep .6s ease-out;
+}
+@keyframes boot { 0% { opacity: 0 } 20% { opacity: .7 } 35% { opacity: .1 } 55% { opacity: 1 } 75% { opacity: .5 } to { opacity: 1 } }
+@keyframes sweep { from { transform: scaleY(0); opacity: 1 } to { transform: scaleY(1); opacity: 0 } }
+
+/* ---------- header: glitch + roll bar ---------- */
+@{chat-header} { background: #010803e6 !important; border-bottom: 1px solid #123522; }
+@{chat-title} { text-shadow: 0 0 10px #0affa073; animation: glitch 11s steps(1) infinite; }
+@keyframes glitch {
+  95.6% { transform: translate(3px, -1px) skewX(-12deg); text-shadow: -2px 0 #ff2d6f, 2px 0 #2de2ff; }
+  96.2% { transform: translate(-2px, 1px); text-shadow: 2px 0 #ff2d6f, -2px 0 #2de2ff; opacity: .6; }
+  96.8% { transform: none; }
+}
+@{chat-header}::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 140px;
+  z-index: 50;
+  pointer-events: none;
+  background: linear-gradient(transparent, #0affa00b, transparent);
+  transform: translateY(-160px);
+  animation: roll 16s linear infinite;
+}
+@keyframes roll { 0% { transform: translateY(-160px) } 55%, to { transform: translateY(100vh) } }
+
+/* ---------- sidebar ---------- */
+@{thread-row} { background-color: #010803b3; transition: background-color .9s; }
+@{thread-row}:hover { background-color: #0affa01f; transition-duration: 0s; }
+@{thread-row-active} {
+  background-color: #0affa01a;
+  box-shadow: inset 0 0 0 1px #0affa059, 0 0 14px #0affa01f;
+  text-shadow: 0 0 8px #0affa073;
+}
+@{thread-row-running} { position: relative; overflow: hidden; }
+@{thread-row-running}::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 40%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, #0affa029, transparent);
+  transform: translateX(-110%);
+  animation: sheen 2.2s ease-in-out infinite;
+}
+@keyframes sheen { to { transform: translateX(260%) } }
+@{project-monogram} {
+  background: #011207 !important;
+  border: 1px solid var(--g);
+  color: var(--g) !important;
+  font-family: ui-monospace, monospace;
+  text-shadow: 0 0 6px var(--g);
+  box-shadow: 0 0 8px #0affa059, inset 0 0 6px #0affa040;
+}
+
+/* any spinner becomes a mutating glyph */
+[class*="lucide-loader"] {
+  stroke: transparent !important;
+  background: var(--spin) center / contain no-repeat;
+  animation: none !important;
+}
+.lucide { stroke-width: 1.75; filter: drop-shadow(0 0 3px #0affa080); }
+
+/* ---------- composer: prompt + block caret, both on the editor (the card's pseudos hold the watcher) ---------- */
+@{composer-card} {
+  position: relative;
+  background: radial-gradient(120% 140% at 50% 0, #03170c, #020d06 70%) !important;
+  border: 1px solid #0affa080 !important;
+  border-radius: 12px;
+  box-shadow: 0 0 26px #0affa029, inset 0 0 18px #0affa012;
+}
+@{composer-input}::before {
+  content: "❯";
+  position: absolute;
+  left: 0;
+  top: 0;
+  font: 700 15px/1.5 ui-monospace, monospace;
+  color: var(--g);
+  text-shadow: 0 0 8px var(--g);
+}
+@{composer-input} {
+  position: relative;
+  padding-left: 26px !important;
+  caret-color: var(--g);
+  font-family: ui-monospace, monospace;
+}
+@{composer-card}:has(@{composer-empty}) @{composer-input} { caret-color: transparent; }
+@{composer-card}:has(@{composer-empty}) @{composer-input}::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 3px;
+  width: 9px;
+  height: 17px;
+  background: var(--g);
+  box-shadow: 0 0 8px var(--g);
+  animation: blink 1.05s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0 } }
+
+/* ---------- code: CRT tube ---------- */
+@{code-block} {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  background: radial-gradient(130% 120% at 50% 45%, #021309, #010603 70%) !important;
+  box-shadow: 0 0 0 1px #0affa04d, 0 0 24px #0affa01a, inset 0 0 36px #0affa014;
+  text-shadow: 0 0 5px #0affa038;
+}
+@{code-block}::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(transparent 0 2px, #0000002e 2px 3px), radial-gradient(120% 100%, transparent 60%, #00000073);
+}
+
+/* ---------- terminal ---------- */
+@{terminal-drawer} {
+  border-top: 1px solid var(--g) !important;
+  box-shadow: 0 -1px 18px #0affa02e;
+  text-shadow: 0 0 5px #0affa040;
+}
+
+/* ---------- overlays: tooltips type on, menus flicker in, dialogs power on ---------- */
+@{tooltip} {
+  position: relative;
+  overflow: hidden;
+  background: var(--g) !important;
+  color: var(--ink) !important;
+  font-family: ui-monospace, monospace;
+  box-shadow: 0 0 16px #0affa059;
+}
+@{tooltip}::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--g);
+  transform-origin: right;
+  transform: scaleX(0);
+  animation: typeon .4s steps(12);
+}
+@keyframes typeon { from { transform: scaleX(1) } }
+:is(@{menu}, @{popover}) {
+  box-shadow: 0 0 0 1px #0affa066, 0 0 26px #0affa029, 0 18px 40px #0009 !important;
+  animation: flick .25s steps(1) both;
+}
+@keyframes flick { 0% { opacity: 0 } 30% { opacity: 1 } 50% { opacity: .3 } 70% { opacity: 1 } }
+@{dialog} {
+  box-shadow: 0 0 0 1px #0affa066, 0 0 40px #0affa02e !important;
+  animation: pwr .32s cubic-bezier(.2, .8, .2, 1) both;
+}
+@keyframes pwr { from { scale: 1.04 .02; opacity: .3 } }
+
+/* ---------- controls ---------- */
+:is(@{input}, @{select}):focus-visible { outline: none; box-shadow: 0 0 0 1px var(--g), 0 0 12px #0affa040 !important; }
+@{switch-checked} { background: var(--g) !important; box-shadow: 0 0 10px #0affa080; }
+@{button}:focus-visible { outline: 1px solid var(--g); box-shadow: 0 0 12px #0affa059; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--g) padding-box;
+  border: 2px solid transparent;
+  border-radius: 4px;
+  box-shadow: 0 0 8px var(--g);
+}
+
+/* ---------- reduced motion: fully still ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after { animation: none !important; transition: none !important; }
+}

@@ -18,10 +18,19 @@ def fail(msg):
 
 def min_css(css):
     css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    # Quoted strings (attribute values, content) must survive byte for byte: park them first.
+    strings = []
+
+    def park(m):
+        strings.append(m.group(0))
+        return f"\x00{len(strings) - 1}\x00"
+
+    css = re.sub(r'"[^"]*"', park, css)
     css = re.sub(r"\s+", " ", css)
     # Never strip the space before ":" - "a :is(b)" and "a:is(b)" are different selectors.
     css = re.sub(r"\s*([{};,>])\s*", r"\1", css)
-    return re.sub(r":\s+", ":", css).replace(";}", "}").strip()
+    css = re.sub(r":\s+", ":", css).replace(";}", "}").strip()
+    return re.sub(r"\x00(\d+)\x00", lambda m: strings[int(m.group(1))], css)
 
 
 def svg_uri(path):

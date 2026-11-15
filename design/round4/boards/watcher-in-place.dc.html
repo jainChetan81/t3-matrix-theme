@@ -1,0 +1,749 @@
+<html lang="en" style="touch-action: pan-x pan-y; overscroll-behavior: none;"><head><style>
+    .sc-placeholder{background:color-mix(in srgb,currentColor 8%,transparent);
+      border:1px solid color-mix(in srgb,currentColor 50%,transparent);
+      border-radius:2px;box-sizing:border-box;overflow:hidden}
+    @keyframes sc-shine{0%{background-position:100% 50%}100%{background-position:0% 50%}}
+    html.sc-dc-streaming .sc-placeholder,
+    html.sc-dc-streaming .sc-interp.sc-missing{position:relative;
+      background:color-mix(in srgb,currentColor 5%,transparent);
+      border-color:transparent}
+    html.sc-dc-streaming .sc-placeholder::before,
+    html.sc-dc-streaming .sc-interp.sc-missing::before{content:'';
+      position:absolute;inset:0;pointer-events:none;
+      background:linear-gradient(90deg,rgba(217,119,87,0) 25%,rgba(247,225,211,.95) 37%,rgba(217,119,87,0) 63%);
+      background-size:400% 100%;animation:sc-shine 1.4s ease infinite}
+    html.sc-dc-streaming .sc-placeholder:nth-child(n+9 of .sc-placeholder)::before,
+    html.sc-dc-streaming .sc-interp.sc-missing:nth-child(n+9 of .sc-interp.sc-missing)::before{animation:none;
+      background:color-mix(in srgb,currentColor 8%,transparent)}
+    .sc-placeholder-error{padding:4px 8px;font:11px/1.4 ui-monospace,monospace;
+      color:color-mix(in srgb,currentColor 70%,transparent);word-break:break-word}
+    .sc-interp.sc-missing{display:inline-block;width:2em;height:1em;overflow:hidden;
+      vertical-align:text-bottom;background:rgba(255,255,255,.3);border:1px solid rgba(0,0,0,.5);
+      border-radius:2px;box-sizing:border-box;color:transparent;
+      user-select:none}
+    .sc-interp.sc-unresolved{font-family:ui-monospace,monospace;font-size:.85em;
+      color:color-mix(in srgb,currentColor 50%,transparent);
+      background:color-mix(in srgb,currentColor 10%,transparent);border-radius:3px;
+      padding:0 3px}
+    .sc-host.sc-has-error{position:relative}
+    .sc-logic-error{position:absolute;top:8px;left:8px;z-index:2147483647;max-width:60ch;
+      padding:6px 10px;background:#b00020;color:#fff;font:12px/1.4 ui-monospace,monospace;
+      border-radius:4px;white-space:pre-wrap;pointer-events:none}
+    /* Mirrors PRINT_BASELINE_CSS in apps/web deck-stage-export.ts — keep both
+       in sync until dc-runtime regains a build step. */
+    @media print {
+      @page { margin: 0.5cm; }
+      figure, table { break-inside: avoid; }
+      #dc-root, #dc-root > .sc-host { height: auto; }
+      *, *::before, *::after {
+        print-color-adjust: exact; -webkit-print-color-adjust: exact;
+        backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+        animation-delay: -99s !important; animation-duration: .001s !important;
+        animation-iteration-count: 1 !important; animation-fill-mode: both !important;
+        animation-play-state: running !important; transition-duration: 0s !important;
+      }
+    }
+  </style><script>
+(function () {
+  /* WebRTC is an egress channel the CSP cannot close, and Frame's runtime
+   * removes its constructors in the ARTIFACT realm only; this nested realm
+   * gets the same treatment so an artboard starts from the platform's
+   * baseline. (A page that goes looking can still find a constructor in a
+   * fresh child realm - the residual Frame accepts for every artifact.) */
+  try { delete window.RTCPeerConnection; } catch (e) {}
+  try { delete window.webkitRTCPeerConnection; } catch (e) {}
+  try { window.RTCPeerConnection = undefined; } catch (e) {}
+  try { window.webkitRTCPeerConnection = undefined; } catch (e) {}
+  var P = window.parent;
+  if (!P || P === window) return;
+  /* Liveness handshake (previewGuard.ts): mint a channel, keep one end
+   * in this closure, hand the other to the host before any authored
+   * byte runs. The port is a capability, not text - it cannot be read
+   * out of the document or serialized into a data:/blob: replacement,
+   * and it dies with this realm - so a pong is proof the document the
+   * HOST assembled is the one alive in the frame. The host binds the
+   * first hello per generation; nothing authored runs earlier, so this
+   * one always wins that race. */
+  try {
+    /* The pong path is UNCURRIED at t=0: every native it touches is
+     * captured as a value before any authored byte runs, and invoked
+     * through a captured Reflect.apply - authored prototype poisoning
+     * of MessagePort.prototype.postMessage or a trapping
+     * MessageEvent.prototype.data getter must never see this port or
+     * steal a send path. And every pong ECHOES the ping's nonce: a pong
+     * is only proof of life for the ping that asked, so stale pongs
+     * queued before a navigation prove nothing about the document that
+     * replaced this one. */
+    var applyH = Reflect.apply;
+    var getData = Object.getOwnPropertyDescriptor(MessageEvent.prototype, 'data').get;
+    var hasOwnH = Object.prototype.hasOwnProperty;
+    var ch = new MessageChannel();
+    var portPost = MessagePort.prototype.postMessage.bind(ch.port1);
+    ch.port1.onmessage = function (ev) {
+      var d = null;
+      try { d = applyH(getData, ev, []); } catch (e) { return; }
+      if (d == null || typeof d !== 'object') return;
+      if (!applyH(hasOwnH, d, ['__om_ping'])) return;
+      try { portPost({ __om_pong: d.__om_ping }); } catch (e) {}
+    };
+    P.postMessage({ __om_hello: 1 }, '*', [ch.port2]);
+  } catch (e) {}
+  /* Self-navigation tripwire: pagehide fires while THIS document is
+   * being torn down. The message is DELIVERED after the document is
+   * destroyed, so it arrives with e.source === null - the host accepts
+   * exactly that shape (a live-source forgery of it only blanks the
+   * forger's own preview). It is one tripwire, not the verdict: the
+   * port probe above is what decides, on every load. The listener is
+   * an unreachable closure - authored code has no reference to remove
+   * it, and P is captured at t=0 before anything authored runs. */
+  try {
+    window.addEventListener('pagehide', function () {
+      try { P.postMessage({ __om_nav_away: 1 }, '*'); } catch (e) {}
+    });
+  } catch (e) {}
+  /* Escape relay (np): while an artboard plays (full-window or in place) keyboard focus lives in HERE, so the host cannot hear
+   * Esc - relay it, in the capture phase so authored handlers that stopPropagation still let it through. Advisory only: the host
+   * at most stops following a person or Claude, or else leaves Play and takes the keyboard back from this frame (App.tsx's Esc effects, follow-claudes-work.ts). */
+  try {
+    window.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Escape' || ev.repeat) return;
+      try { P.postMessage({ __om_escape: 1 }, '*'); } catch (e) {}
+    }, true);
+  } catch (e) {}
+  /* Copy-link relay: the host's Alt+Cmd+L / Ctrl+Alt+L (the kit's isCopyLinkKey, spelt out), which it cannot hear in here, editing or playing. Cancelled, so the
+   * browser does not act on the chord too. The host decides: it copies a link to its own view, for a live gesture from the focused frame only. */
+  try {
+    window.addEventListener('keydown', function (ev) {
+      if (!ev.altKey || ev.shiftKey || !(ev.metaKey ? ev.code === 'KeyL' : ev.ctrlKey && (ev.key === 'l' || ev.key === 'L'))) return;
+      ev.preventDefault();
+      if (ev.repeat || !ev.isTrusted) return;
+      try { P.postMessage({ __om_copy_link: 1 }, '*'); } catch (e) {}
+    }, true);
+  } catch (e) {}
+  /* Step relay: ArrowLeft / ArrowRight for the host's full-window Previous / Next, which cannot hear keys pressed in here. Not sent: a chord,
+   * a repeat, a script's event, a key for a field, arrow-key control or sideways-scrolling page, or one the design cancelled. */
+  try {
+    var ARROW_OWNER = "input,textarea,select,video,audio,canvas,[role=application],[role=scrollbar],[aria-roledescription=carousel],[aria-roledescription=slide],[role=textbox],[role=searchbox],[role=combobox],[role=spinbutton],[role=slider],[role=radiogroup],[role=radio],[role=tablist],[role=tab],[role=toolbar],[role=menu],[role=menubar],[role=menuitem],[role=menuitemradio],[role=menuitemcheckbox],[role=listbox],[role=option],[role=tree],[role=treegrid],[role=grid]";
+    var afterDispatch = window.setTimeout.bind(window);
+    var styleOf = window.getComputedStyle.bind(window);
+    /* the page itself scrolls sideways (by more than a stray scrollbar's width) and is not clipped there */
+    var pageScrollsSideways = function () {
+      var se = document.scrollingElement;
+      if (!se || se.scrollWidth - se.clientWidth <= 24) return false;
+      var clip = /hidden|clip/;
+      var hx = styleOf(document.documentElement).overflowX;
+      if (clip.test(hx)) return false;
+      return /auto|scroll/.test(hx) || !(document.body && clip.test(styleOf(document.body).overflowX));
+    };
+    /* a clicked box that scrolls sideways takes the arrows without having focus: remember where the last press landed */
+    var lastPress = null;
+    window.addEventListener('pointerdown', function (ev) { lastPress = (ev.composedPath && ev.composedPath()[0]) || ev.target; }, true);
+    var ownsArrows = function (ev) {
+      var path = ev.composedPath ? ev.composedPath() : [ev.target];
+      if (ev.target === document.body || ev.target === document.documentElement) {
+        for (var p = lastPress; p && p.nodeType === 1 && p.isConnected; p = p.parentElement || (p.parentNode && p.parentNode.host) || null) path.push(p);
+      }
+      for (var i = 0; i < path.length; i += 1) {
+        var n = path[i];
+        if (!n || n.nodeType !== 1) continue;
+        if (n.isContentEditable || (n.matches && n.matches(ARROW_OWNER))) return true;
+        /* a box in the design that scrolls sideways keeps its arrows too */
+        if (n.scrollWidth - n.clientWidth > 24 && /auto|scroll/.test(styleOf(n).overflowX)) return true;
+      }
+      return false;
+    };
+    window.addEventListener('keydown', function (ev) {
+      if ((ev.key !== 'ArrowLeft' && ev.key !== 'ArrowRight') || ev.repeat || !ev.isTrusted) return;
+      if (ev.metaKey || ev.ctrlKey || ev.altKey || ev.shiftKey || ownsArrows(ev)) return;
+      if (pageScrollsSideways()) return;
+      var dir = ev.key === 'ArrowRight' ? 1 : -1;
+      afterDispatch(function () {
+        if (ev.defaultPrevented) return;
+        try { P.postMessage({ __om_step: dir }, '*'); } catch (e) {}
+      }, 0);
+    }, false);
+  } catch (e) {}
+  /* Link relay (advisory, not hardened). Any navigation here (even "#x", resolved off <base>) trips the
+   * host's guard, so every anchor click is cancelled at capture - invisibly: the design (and the edit picker)
+   * still read defaultPrevented as false, and their own preventDefault() means hands off. Otherwise, once the
+   * click has dispatched: "#id" scrolls the frame to its target, external http(s) is handed to the host, and a
+   * project path (href="Deck.dc.html") is offered to the host, which opens it only if it names an artboard. */
+  try {
+    var compatPage = window.__omEditor === 1; /* a migrated page at its own URL (buildCompatDoc): links name pages by their project path, as its shim does */
+    /* the project root (/_f/{ver}/project/) the runner stamped ahead of this script: a link is named relative to IT, so deck/a.html's
+     * "b.html" reads deck/b.html and its "../index.html" reads index.html; read once, here, before anything authored runs */
+    var projectRoot = compatPage && typeof window.__omProjectRoot === 'string' ? window.__omProjectRoot : null;
+    var LINK_SEL = 'a[*|href],area[href]'; /* *| also catches SVG xlink:href */
+    try { document.createElement('a').matches(LINK_SEL); } catch (e) { LINK_SEL = 'a[href],area[href]'; }
+    /* A native control between the click and the link owns the click: in current engines these act without the link navigating... */
+    var CONTROL_KEEPS_CLICK = 'input[type=checkbox],input[type=radio],input[type=file],input[type=color],summary,label,video[controls],audio[controls]';
+    /* ...while these (buttons, text/number/date/range inputs, selects) would still navigate it, so the navigation is cancelled but nothing opens. */
+    var CONTROL_SEL = CONTROL_KEEPS_CLICK + ',button,input,select,textarea';
+    /* a label counts only when it labels something, a summary only as its details' first summary: otherwise the link still navigates */
+    var ownsClick = function (n) {
+      if (n.localName === 'label') return !!n.control;
+      if (n.localName !== 'summary') return true;
+      var p = n.parentNode;
+      return !!p && p.localName === 'details' && p.querySelector(':scope > summary') === n;
+    };
+    var hit = function (ev) {
+      var path = ev.composedPath ? ev.composedPath() : [ev.target];
+      var control = null;
+      for (var i = 0; i < path.length; i += 1) {
+        var n = path[i];
+        if (!n || n.nodeType !== 1 || !n.matches) continue;
+        if (n.matches(LINK_SEL)) return { a: n, control: control };
+        if (control == null && n.matches(CONTROL_SEL) && ownsClick(n)) control = n;
+      }
+      return null;
+    };
+    var follow = function (a, aux) {
+      var raw = String(a.getAttribute('href') || '').trim();
+      if (raw === '') return; /* SVG xlink-only anchors, empty href: cancelled above, inert here */
+      if (raw.charAt(0) === '#') {
+        if (aux || raw === '#') return; /* a middle click never scrolls; a bare "#" is the "script owns it" idiom: inert */
+        var id = raw.slice(1);
+        try { id = decodeURIComponent(id); } catch (e) {}
+        var t = document.getElementById(id) || document.getElementsByName(id)[0];
+        /* in-frame scroll only: a fragment navigation or scrollIntoView can also scroll the host's containers */
+        try {
+          if (t) window.scrollBy(0, t.getBoundingClientRect().top);
+          else if (id.toLowerCase() === 'top') window.scrollTo(0, 0);
+        } catch (e) {}
+        return;
+      }
+      var url = null;
+      try { url = new URL(raw, document.baseURI); } catch (e) { return; }
+      var own = false;
+      try { var base = new URL(document.baseURI); own = base.origin !== 'null' && url.protocol === base.protocol && url.origin === base.origin; } catch (e) {}
+      if (!own && url.protocol !== 'http:' && url.protocol !== 'https:') return;
+      if (own) {
+        if (aux || a.hasAttribute('download')) return; /* a same-origin download names no artboard (in compat mode the page shim saves it) */
+        var dir = compatPage ? (projectRoot !== null ? projectRoot : new URL('.', document.baseURI).pathname) : null;
+        if (dir !== null && url.pathname.indexOf(dir) !== 0) return; /* out of the project: not a page of it */
+        var rel = dir !== null ? url.pathname.slice(dir.length) : url.pathname.indexOf('/appifact/') === 0 ? url.pathname.slice(10) : url.pathname.slice(1);
+        try { rel = decodeURIComponent(rel); } catch (e) {}
+        try { P.postMessage(compatPage && /^#[0-9]{1,4}$/.test(url.hash) ? { __om_open: rel, __om_hash: url.hash } : { __om_open: rel }, '*'); } catch (e) {}
+        return;
+      }
+      try { P.postMessage({ __om_link: url.href }, '*'); } catch (e) {}
+    };
+    var onLink = function (ev) {
+      var aux = ev.type === 'auxclick';
+      if (aux && ev.button !== 1) return;
+      var h = hit(ev);
+      if (h == null) return;
+      var a = h.a;
+      /* text being edited around the click (asked of the nearest HTML element: SVG nodes have no isContentEditable) */
+      var host = ev.target;
+      while (host && host.isContentEditable === undefined) host = host.parentNode;
+      var editing = !!(host && host.isContentEditable);
+      /* untouched: a control that keeps its click (any control, for a middle click), and a middle click in text being edited (paste) */
+      if ((h.control != null && (aux || h.control.matches(CONTROL_KEEPS_CLICK))) || (aux && editing)) return;
+      var handled = false;
+      var cancel = ev.preventDefault;
+      var claim = function () { handled = true; cancel.call(ev); };
+      try {
+        Object.defineProperty(ev, 'preventDefault', { value: claim, writable: true, configurable: true });
+        Object.defineProperty(ev, 'defaultPrevented', { get: function () { return handled; }, configurable: true });
+        Object.defineProperty(ev, 'returnValue', { get: function () { return !handled; }, set: function (v) { if (v === false) claim(); }, configurable: true });
+      } catch (e) {}
+      cancel.call(ev);
+      /* cancelled, nothing opens: a control the link would navigate past, a link in text being edited,
+       * and a middle button arriving as 'click' (auxclick carries the one relay for it) */
+      if (h.control != null || editing || (!aux && ev.button === 1)) return;
+      setTimeout(function () { if (!handled) follow(a, aux); }, 0);
+    };
+    window.addEventListener('click', onLink, true);
+    window.addEventListener('auxclick', onLink, true);
+  } catch (e) {}
+  var serialise = function (v) {
+    try { return JSON.stringify(v); } catch (e) { return JSON.stringify(String(v)); }
+  };
+  window.addEventListener('message', function (e) {
+    if (e.source !== P) return;
+    var d = e.data;
+    if (!d || d.__om_eval !== 1) return;
+    var reply = function (p) {
+      p.__om_eval_r = 1;
+      p.id = d.id;
+      e.source.postMessage(p, '*');
+    };
+    try {
+      var r = (0, eval)(d.code);
+      if (r && typeof r.then === 'function') {
+        r.then(
+          function (v) { reply({ ok: 1, v: serialise(v) }); },
+          function (err) { reply({ ok: 0, e: String(err) }); }
+        );
+      } else {
+        reply({ ok: 1, v: serialise(r) });
+      }
+    } catch (err) {
+      reply({ ok: 0, e: String(err) });
+    }
+  });
+})();
+</script><script>
+(function () {
+  /* Viewport guard */
+  var doc = document;
+  var align = function (lo, hi, cLo, cHi, mode) {
+    if (mode === 'start') return lo - cLo;
+    if (mode === 'end') return hi - cHi;
+    if (mode === 'center') return (lo + hi) / 2 - (cLo + cHi) / 2;
+    if ((lo >= cLo && hi <= cHi) || (lo < cLo && hi > cHi)) return 0; /* fully visible, or covering */
+    /* center-if-needed centres only a fully hidden target; a partly visible one moves to the nearest edge */
+    if (mode === 'center-if-needed' && (hi <= cLo || lo >= cHi)) return (lo + hi) / 2 - (cLo + cHi) / 2;
+    var fits = hi - lo <= cHi - cLo;
+    if (lo < cLo) return fits ? lo - cLo : hi - cHi;
+    return fits ? hi - cHi : lo - cLo;
+  };
+  var styleOf = function (n) {
+    try { return getComputedStyle(n); } catch (e) { return null; }
+  };
+  var set = function (v) { return !!v && v !== 'none' && v !== 'auto'; };
+  /* transform-like properties make a box the containing block of its absolute AND fixed descendants */
+  var containsFixed = function (cs) {
+    return set(cs.transform) || set(cs.translate) || set(cs.rotate) || set(cs.scale) || set(cs.perspective) || set(cs.filter) ||
+      set(cs.backdropFilter) || cs.transformStyle === 'preserve-3d' || /layout|paint|strict|content/.test(cs.contain || '') ||
+      /(^|,)\s*(transform|translate|rotate|scale|perspective|filter|backdrop-filter)\s*(,|$)/.test(cs.willChange || '');
+  };
+  var scrolls = function (n, cs) {
+    var v = cs.overflow + ' ' + cs.overflowX + ' ' + cs.overflowY;
+    return /auto|scroll|hidden/.test(v) && (n.scrollHeight > n.clientHeight || n.scrollWidth > n.clientWidth);
+  };
+  var up = function (n) {
+    if (n.assignedSlot) return n.assignedSlot;
+    var p = n.parentNode;
+    return p && p.nodeType === 11 && p.host ? p.host : p;
+  };
+  /* Reveal el inside this document only: each scrolling ancestor, then the frame's own viewport. Never the parent's. */
+  var reveal = function (el, block, inline, smooth) {
+    if (!el || typeof el.getClientRects !== 'function' || el.getClientRects().length === 0) return; /* no box: nothing to reveal */
+    var d = el.ownerDocument || doc;
+    var root = d.scrollingElement || d.documentElement;
+    /* Only boxes in el's containing-block chain can move it: an absolute box skips static ancestors up to a positioned or
+     * transform-like one; a fixed box skips everything up to a transform-like one (none: not even the viewport moves it). */
+    var es = styleOf(el);
+    var pos = (es && es.position) || 'static';
+    var seekAbs = pos === 'absolute', seekFixed = pos === 'fixed';
+    for (var n = up(el); n && n !== root && n.nodeType === 1; n = up(n)) {
+      var cs = styleOf(n);
+      if (!cs) continue;
+      pos = cs.position || 'static';
+      if (seekFixed ? !containsFixed(cs) : seekAbs && pos === 'static' && !containsFixed(cs)) continue;
+      seekAbs = pos === 'absolute';
+      seekFixed = pos === 'fixed';
+      if (!scrolls(n, cs)) continue;
+      var r = el.getBoundingClientRect();
+      var c = n.getBoundingClientRect();
+      var cTop = c.top + n.clientTop, cLeft = c.left + n.clientLeft;
+      var dy = align(r.top, r.bottom, cTop, cTop + n.clientHeight, block);
+      var dx = align(r.left, r.right, cLeft, cLeft + n.clientWidth, inline);
+      if (!dx && !dy) continue;
+      /* instant even under CSS scroll-behavior:smooth: the next step must read the settled position ('smooth' applies to the viewport step) */
+      if (typeof n.scrollTo === 'function') n.scrollTo({ left: n.scrollLeft + dx, top: n.scrollTop + dy, behavior: 'instant' });
+      else { n.scrollTop += dy; n.scrollLeft += dx; }
+    }
+    if (seekFixed) return;
+    var rr = el.getBoundingClientRect();
+    var vw = (root && root.clientWidth) || window.innerWidth, vh = (root && root.clientHeight) || window.innerHeight;
+    var wy = align(rr.top, rr.bottom, 0, vh, block);
+    var wx = align(rr.left, rr.right, 0, vw, inline);
+    if (wx || wy) window.scrollBy({ left: wx, top: wy, behavior: smooth ? 'smooth' : 'auto' });
+  };
+  var deepActive = function (el, d) {
+    var r = el.getRootNode ? el.getRootNode() : d; /* el's own (possibly closed) shadow root sees its activeElement */
+    var a = (r && 'activeElement' in r ? r : d).activeElement;
+    while (a && a.shadowRoot && a.shadowRoot.activeElement) a = a.shadowRoot.activeElement;
+    return a;
+  };
+  var within = function (a, el) {
+    for (var n = a; n; n = up(n)) if (n === el) return true;
+    return false;
+  };
+  var guardFocus = function (proto) {
+    if (!proto || typeof proto.focus !== 'function') return;
+    var native = proto.focus;
+    /* reveal only what actually took focus (el, or its delegate inside it), and only if focus moved - as the native does */
+    proto.focus = function focus(o) {
+      var d = this.ownerDocument || doc;
+      var before = deepActive(this, d);
+      native.call(this, o && o.focusVisible !== undefined ? { preventScroll: true, focusVisible: o.focusVisible } : { preventScroll: true });
+      if (o && o.preventScroll) return;
+      try { var a = deepActive(this, d); if (a && a !== before && within(a, this)) reveal(a, 'center-if-needed', 'center-if-needed', false); } catch (e) {}
+    };
+  };
+  guardFocus(window.HTMLElement && window.HTMLElement.prototype);
+  guardFocus(window.SVGElement && window.SVGElement.prototype);
+  guardFocus(window.MathMLElement && window.MathMLElement.prototype);
+  var E = window.Element;
+  if (E) {
+    E.prototype.scrollIntoView = function scrollIntoView(arg) {
+      var dict = arg == null || typeof arg === 'object';
+      var o = (dict && arg) || {};
+      var block = dict ? o.block || 'start' : arg ? 'start' : 'end';
+      try { reveal(this, block, o.inline || 'nearest', o.behavior === 'smooth'); } catch (e) {}
+    };
+    E.prototype.scrollIntoViewIfNeeded = function scrollIntoViewIfNeeded(center) {
+      var mode = center === undefined || center ? 'center-if-needed' : 'nearest';
+      try { reveal(this, mode, mode, false); } catch (e) {}
+    };
+  }
+})();
+</script><script>
+(function () {
+  var PREFIX = 'page:';
+  var memory = function () {
+    var m = Object.create(null);
+    return {
+      getItem: function (k) { return k in m ? m[k] : null; },
+      setItem: function (k, v) { m[k] = String(v); },
+      removeItem: function (k) { delete m[k]; },
+      key: function (i) { var ks = Object.keys(m); i = Math.floor(Number(i)) || 0; return i >= 0 && i < ks.length ? ks[i] : null; },
+      get length() { return Object.keys(m).length; }
+    };
+  };
+  var scope = function (real) {
+    var keys = function () {
+      var out = [];
+      for (var i = 0, n = real.length; i < n; i++) { var k = real.key(i); if (k !== null && k.indexOf(PREFIX) === 0) out.push(k.slice(PREFIX.length)); }
+      return out;
+    };
+    var api = {
+      getItem: function (k) { return real.getItem(PREFIX + String(k)); },
+      setItem: function (k, v) { real.setItem(PREFIX + String(k), String(v)); },
+      removeItem: function (k) { real.removeItem(PREFIX + String(k)); },
+      clear: function () { keys().forEach(function (k) { real.removeItem(PREFIX + k); }); },
+      key: function (i) { var ks = keys(); i = Math.floor(Number(i)) || 0; return i >= 0 && i < ks.length ? ks[i] : null; },
+      get length() { return keys().length; }
+    };
+    if (typeof Proxy !== 'function') return api;
+    var own = function (p) { return typeof p === 'string' && !(p in api) && p !== 'length'; };
+    return new Proxy(api, {
+      get: function (t, p) { if (p === 'length') return keys().length; if (p in api) return api[p]; if (!own(p)) return undefined; var v = real.getItem(PREFIX + p); return v === null ? undefined : v; },
+      set: function (t, p, v) { if (own(p)) real.setItem(PREFIX + p, String(v)); return true; },
+      deleteProperty: function (t, p) { if (own(p)) real.removeItem(PREFIX + p); return true; },
+      has: function (t, p) { return p in api || p === 'length' || (own(p) && real.getItem(PREFIX + p) !== null); },
+      ownKeys: function () { return keys(); },
+      getOwnPropertyDescriptor: function (t, p) { if (!own(p)) return undefined; var v = real.getItem(PREFIX + p); return v === null ? undefined : { value: v, writable: true, enumerable: true, configurable: true }; }
+    });
+  };
+  var natives = {};
+  var views = {};
+  ['localStorage', 'sessionStorage'].forEach(function (n) {
+    var real = null;
+    try { real = window[n]; } catch (e) { real = null; }
+    if (!real || typeof real.getItem !== 'function') real = memory();
+    natives[n] = real;
+    views[n] = scope(real);
+    try { Object.defineProperty(window, n, { value: views[n], configurable: true }); } catch (e) {}
+  });
+  /* 'storage' events, the same view: a write to the namespace (another artboard, another tab) reaches the page's listeners
+   * with its own key and the scoped store as storageArea; anything else on this origin (the editor's stash and prefs, a key
+   * outside the namespace) is not the page's and does not reach them. Registered first and capturing, so it runs before any
+   * listener the page adds, onstorage included. */
+  try {
+    window.addEventListener('storage', function (e) {
+      if (!e.isTrusted) return; /* one the page dispatched itself (a same-window sync idiom): its own traffic, already in its own terms */
+      var k = e.key;
+      var area = e.storageArea === natives.localStorage ? views.localStorage : e.storageArea === natives.sessionStorage ? views.sessionStorage : null;
+      if (k === null || (typeof k === 'string' && k.indexOf(PREFIX) === 0)) { /* a namespace key, or a whole-store clear (null): the page's, in its terms */
+        try { Object.defineProperties(e, { key: { value: k === null ? null : k.slice(PREFIX.length), configurable: true }, storageArea: { value: area, configurable: true } }); } catch (x) { e.stopImmediatePropagation(); }
+        return;
+      }
+      e.stopImmediatePropagation();
+    }, true);
+  } catch (e) {}
+})();
+</script>
+
+
+<meta charset="utf-8">
+<title>Watcher — in place</title>
+<base href="/appifact/R4-Watcher-in-place.dc.html">
+<script>window.__dcFiles = {}; window.__dcRootPath = "R4-Watcher-in-place.dc.html"; (function (p) { for (var k in p) { if (Object.prototype.hasOwnProperty.call(p, k) && k.indexOf('file:') === 0) window.__dcFiles[k.slice(5)] = p[k]; } document.addEventListener('DOMContentLoaded', function () { try { delete window.__dcParts; delete window.__dcPartBlobs; } catch (e) {} }); })(window.__dcParts || {});</script>
+<script>
+(function () {
+  var real = window.fetch.bind(window);
+  var ROOT = typeof window.__dcProjectRoot === 'string' ? window.__dcProjectRoot : null;
+  var IMAGE_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp', svg: 'image/svg+xml' };
+  var TEXT_MIME = { html: 'text/html', css: 'text/css', js: 'text/javascript', mjs: 'text/javascript', json: 'application/json' };
+  /* The requested URL as a project key: relative to the root file's folder ('../x' too, and the
+   * runtime's encoded '..%2FName.dc.html'), or absolute under <base> (/appifact/...) - resolveRef in preview.ts. */
+  var norm = function (u) {
+    if (u && typeof u === 'object' && typeof u.url === 'string') u = u.url;
+    u = String(u).split('#')[0].split('?')[0];
+    // dc-runtime boot() re-fetches location.href to re-adopt its own raw
+    // bytes (camelCase attr repair). In a srcdoc document that URL is
+    // about:srcdoc, which fetch() can't load - serve the root source from
+    // the map instead, keeping the fidelity pass working.
+    if (u === 'about:srcdoc' || u === String(location.href)) {
+      return window.__dcRootPath || u;
+    }
+    var dir = String(window.__dcRootPath || '').replace(/[^/]*$/, '');
+    /* an absolute URL counts only on this document's own base origin, under /appifact/ or under the stamped project folder */
+    if (/^[a-z][a-z0-9+.-]*:/i.test(u) || u.slice(0, 2) === '//') {
+      try { var abs = new URL(u, document.baseURI), base = new URL(document.baseURI); if (abs.origin !== base.origin || (abs.pathname.indexOf('/appifact/') !== 0 && (ROOT === null || abs.pathname.indexOf(ROOT) !== 0))) return null; u = abs.pathname; } catch (e) { return null; }
+    }
+    /* with the published base, a path under the project folder is read as the same path under /appifact/ */
+    if (ROOT !== null && u.indexOf(ROOT) === 0) u = '/appifact/' + u.slice(ROOT.length);
+    if (u.indexOf('/appifact/') === 0) { u = u.slice(10); dir = ''; }
+    else if (u.charAt(0) === '/') dir = '';
+    try { u = decodeURIComponent(u); } catch (e) {}
+    var out = [];
+    var segs = (dir + u).split('/');
+    for (var s = 0; s < segs.length; s += 1) {
+      if (segs[s] === '' || segs[s] === '.') continue;
+      if (segs[s] === '..') out.pop(); else out.push(segs[s]);
+    }
+    return out.join('/');
+  };
+  /* the stored file a URL names, read live from the map: {key, mime, text, bytes (images)} or null */
+  var lookup = function (url) {
+    var key = norm(url);
+    var files = window.__dcFiles || {};
+    if (key === null || !Object.prototype.hasOwnProperty.call(files, key)) return null;
+    var ext = key.slice(key.lastIndexOf('.') + 1).toLowerCase();
+    var img = IMAGE_MIME[ext];
+    var text = String(files[key]);
+    var bytes = null;
+    if (img) { try { var bin = atob(text); bytes = new Uint8Array(bin.length); for (var b = 0; b < bin.length; b += 1) bytes[b] = bin.charCodeAt(b); } catch (e) { img = ''; bytes = null; } }
+    return { key: key, mime: img || TEXT_MIME[ext] || 'text/plain', text: text, bytes: bytes };
+  };
+  window.__dcLookup = lookup;
+  window.fetch = function (url, opts) {
+    var f = lookup(url);
+    if (f) return Promise.resolve(new Response(f.bytes || f.text, { status: 200, headers: { 'Content-Type': f.mime } }));
+    if (ROOT === null) return real(url, opts);
+    /* a document with the published base reports to the editor a file under the project folder that was answered 403, 404 or 410 (ADDRESS_REFUSED) */
+    return real(url, opts).then(function (r) { if (r && (r.status === 403 || r.status === 404 || r.status === 410) && String(r.url).indexOf(window.origin + ROOT) === 0) { try { window.parent.postMessage({ __dc_address_refused: 1, u: r.url }, '*'); } catch (e) {} } return r; });
+  };
+})();
+
+(function () {
+  var X = window.XMLHttpRequest, lookup = window.__dcLookup;
+  if (!X || !X.prototype || typeof lookup !== 'function') return;
+  var P = X.prototype, realOpen = P.open, realSend = P.send, realHeader = P.setRequestHeader, realMime = P.overrideMimeType, realAbort = P.abort;
+  var SHADOWED = ['readyState', 'status', 'statusText', 'response', 'responseText', 'responseXML', 'responseURL', 'getResponseHeader', 'getAllResponseHeaders'];
+  var set = function (x, k, v) { try { Object.defineProperty(x, k, { value: v, configurable: true, writable: true }); } catch (e) {} };
+  /* a reused object gets its native accessors back before each open */
+  var clear = function (x) { for (var i = 0; i < SHADOWED.length; i += 1) { try { delete x[SHADOWED[i]]; } catch (e) {} } };
+  var fire = function (x, type) { try { x.dispatchEvent(new Event(type)); } catch (e) {} };
+  P.open = function (method, url) {
+    clear(this);
+    var f = /^get$/i.test(String(method)) ? lookup(url) : null;
+    if (!f) { this.__dcHit = null; return realOpen.apply(this, arguments); }
+    /* a reused object: quiesce any native request still in flight, as a native open would */
+    if (this.__dcHit === null) { try { realAbort.apply(this); } catch (e) {} }
+    this.__dcHit = { f: f, async: arguments.length < 3 || !!arguments[2] };
+    set(this, 'readyState', 1);
+    set(this, 'status', 0);
+    fire(this, 'readystatechange');
+  };
+  P.setRequestHeader = function () { if (!this.__dcHit) return realHeader.apply(this, arguments); };
+  if (realMime) P.overrideMimeType = function () { if (!this.__dcHit) return realMime.apply(this, arguments); };
+  P.abort = function () {
+    var hit = this.__dcHit;
+    if (!hit) return realAbort.apply(this, arguments);
+    this.__dcHit = null;
+    if (hit.sent && !hit.done) { set(this, 'readyState', 4); fire(this, 'readystatechange'); fire(this, 'abort'); fire(this, 'loadend'); }
+    clear(this);
+  };
+  P.send = function () {
+    var hit = this.__dcHit;
+    if (!hit) return realSend.apply(this, arguments);
+    if (hit.sent) return;
+    hit.sent = true;
+    var x = this, f = hit.f, rt = '';
+    try { rt = String(x.responseType || ''); } catch (e) {}
+    var done = function () {
+      if (x.__dcHit !== hit) return; /* aborted or re-opened */
+      /* as text: the file's characters (an image's bytes decoded, as fetch().text() gives), never the map's base64 */
+      var text = f.bytes ? new TextDecoder().decode(f.bytes) : f.text;
+      var body = text;
+      try {
+        if (rt === 'arraybuffer') body = f.bytes ? f.bytes.buffer.slice(0) : new TextEncoder().encode(f.text).buffer;
+        else if (rt === 'blob') body = new Blob([f.bytes || f.text], { type: f.mime });
+        else if (rt === 'json') body = JSON.parse(text);
+        else if (rt === 'document') body = new DOMParser().parseFromString(text, f.mime === 'text/html' ? 'text/html' : f.mime === 'image/svg+xml' ? 'image/svg+xml' : 'application/xml');
+      } catch (e) { body = null; }
+      set(x, 'status', 200);
+      set(x, 'statusText', 'OK');
+      try { set(x, 'responseURL', String(new URL('/appifact/' + f.key.split('/').map(encodeURIComponent).join('/'), document.baseURI))); } catch (e) {}
+      set(x, 'response', body);
+      if (rt === '' || rt === 'text') set(x, 'responseText', text);
+      if (rt === 'document') set(x, 'responseXML', body);
+      x.getResponseHeader = function (n) { return /^content-type$/i.test(String(n)) ? f.mime : null; };
+      x.getAllResponseHeaders = function () { return 'content-type: ' + f.mime + '\r\n'; };
+      set(x, 'readyState', 4);
+      hit.done = true;
+      fire(x, 'readystatechange');
+      fire(x, 'load');
+      fire(x, 'loadend');
+    };
+    if (hit.async) setTimeout(done, 0); else done();
+  };
+})();
+
+window.__dcRun = (function () {
+  var has = Object.prototype.hasOwnProperty;
+  var fail = function (key) { try { window.parent.postMessage({ __dc_boot_failed: 1, e: 'a script of this design did not load: ' + key }, '*'); } catch (e) {} };
+  /* a blob: URL that did not load: a file whose text the frame has still runs (inline, at that point); only a URL-only part fails the boot */
+  var recover = function (key, attrs) { var files = window.__dcFiles || {}; if (!has.call(files, key)) return fail(key); var s = document.createElement('script'); for (var a in attrs) { if (has.call(attrs, a) && !/^(async|defer|integrity|crossorigin)$/i.test(a)) { try { s.setAttribute(a, String(attrs[a])); } catch (e) {} } } s.text = String(files[key]) + '\n//# sourceURL=/appifact/' + encodeURI(key); (document.head || document.documentElement).appendChild(s); };
+  /* the parser's tip: a script the parser itself is executing right now (no node follows it anywhere up the tree) -
+   * the only place a document.write lands in place rather than re-opening the document */
+  var atTip = function (el) { for (var n = el; n; n = n.parentNode) { if (n.nextSibling) return false; } return true; };
+  return function (key, attrs) {
+    var files = window.__dcFiles || {}, urls = window.__dcPartUrls || {};
+    var url = has.call(urls, key) ? urls[key] : null;
+    if (url === null && !has.call(files, key)) return;
+    attrs = attrs || {};
+    /* defer/async: after the parse, in document order (as every deferred script here has always run) */
+    var later = has.call(attrs, 'defer') || has.call(attrs, 'async');
+    var cur = document.currentScript;
+    if (document.readyState === 'loading' && cur && atTip(cur)) {
+      /* written where the tag stood, this IS the tag the page wrote: parser-blocking (or natively deferred), same
+       * attributes; a part loads by the page URL every artboard shares (one compile), any other file by a URL of its own */
+      if (url === null && later) { try { url = URL.createObjectURL(new Blob([String(files[key]), '\n//# sourceURL=/appifact/' + encodeURI(key)], { type: 'text/javascript' })); } catch (e) { url = null; } }
+      if (url !== null) {
+        var h = '<' + 'script src="' + url + '"' + (later ? ' defer' : '');
+        for (var n in attrs) { if (has.call(attrs, n) && /^[\w:.-]+$/.test(n) && !/^(async|defer|integrity|crossorigin)$/i.test(n)) h += ' ' + n + '="' + String(attrs[n]).replace(/&/g, '&amp;').replace(/"/g, '&quot;') + '"'; }
+        try {
+          document.write(h + '></' + 'script>');
+          var w = document.scripts[document.scripts.length - 1]; /* the tag just written (the parser inserts it before write returns) */
+          if (w && w !== cur && w.getAttribute('src') === url) { w.addEventListener('error', function () { recover(key, attrs); }); return; }
+          /* the write did not land (a Trusted Types default policy rewrote it, say): load it the other way rather than not at all */
+        } catch (e) {}
+      }
+    }
+    var run = function () {
+      var s = document.createElement('script');
+      for (var a in attrs) { if (has.call(attrs, a) && (url === null || !/^(async|defer|integrity|crossorigin)$/i.test(a))) { try { s.setAttribute(a, String(attrs[a])); } catch (e) {} } }
+      if (has.call(files, key)) s.text = String(files[key]) + '\n//# sourceURL=/appifact/' + encodeURI(key);
+      else { s.async = false; s.src = url; s.addEventListener('error', function () { recover(key, attrs); }); } /* no text on hand (not expected: the bootloader hands every part's text): by URL, in insertion order */
+      /* where the tag stood (document.currentScript keeps its position and data- attributes), else the head */
+      var c = document.currentScript;
+      if (c && c.parentNode) c.parentNode.insertBefore(s, c); else (document.head || document.documentElement).appendChild(s);
+      /* an external script fires 'load' once it has run; the inline stand-in has run by now, so fire it for onload= handlers */
+      if (has.call(files, key)) { try { s.dispatchEvent(new Event('load')); } catch (e) {} }
+    };
+    if (later && document.readyState === 'loading') document.addEventListener('readystatechange', function g() { document.removeEventListener('readystatechange', g); run(); });
+    else run();
+  };
+})();
+
+(function () {
+  var files = window.__dcFiles || {};
+  var blobs = window.__dcPartBlobs || {}, urls = window.__dcPartUrls || {}; /* two-phase boot: a part keeps the page's URL (shared), else its Blob */
+  var imports = {}, has = Object.prototype.hasOwnProperty;
+  var n = 0;
+  for (var k in files) {
+    if (!has.call(files, k) || !/\.m?js$/i.test(k) || /(^|\/)support\.js$/.test(k)) continue;
+    var url;
+    if (has.call(urls, k)) url = urls[k];
+    else { try { url = URL.createObjectURL(blobs[k] instanceof Blob ? blobs[k] : new Blob([String(files[k])], { type: 'text/javascript' })); } catch (e) { continue; } }
+    imports['/appifact/' + k.split('/').map(encodeURIComponent).join('/')] = url;
+    imports[k] = url;
+    n += 1;
+  }
+  if (n === 0) return;
+  var s = document.createElement('script');
+  s.type = 'importmap';
+  s.textContent = JSON.stringify({ imports: imports });
+  (document.head || document.documentElement).appendChild(s);
+})();
+</script>
+<script>
+(function (variants) {
+  var seen = Object.create(null);
+  var add = function (href) {
+    variants(href).forEach(function (v) {
+      if (seen[v]) return;
+      seen[v] = 1;
+      var l = document.createElement('link');
+      l.rel = 'stylesheet';
+      l.href = v;
+      l.setAttribute('data-font-variant', '');
+      l.onerror = function () { l.remove(); };
+      document.head.appendChild(l);
+    });
+  };
+  /* a complete statement only: url(...) closed, or a whole quoted string - a helmet <style> streams in mid-URL */
+  var IMPORT = /@import\s+(?:url\(\s*(?:"([^"]*)"|'([^']*)'|([^"')\s]+))\s*\)|"([^"]*)"|'([^']*)')/g;
+  var scan = function (n) {
+    if (n.tagName === 'LINK' && !n.hasAttribute('data-font-variant') && /\bstylesheet\b/i.test(n.rel)) { seen[n.href] = 1; add(n.href); }
+    else if (n.tagName === 'STYLE') { var css = (n.textContent || '').replace(/\/\*[\s\S]*?\*\//g, ''), m; while ((m = IMPORT.exec(css))) add((m[1] || m[2] || m[3] || m[4] || m[5] || '').trim()); }
+  };
+  var rescan = function () { Array.prototype.forEach.call(document.head.children, scan); };
+  /* head children as they arrive, and a mounted <style> whose text is replaced in place (the helmet runtime streams it) */
+  new MutationObserver(function (rs) { rs.forEach(function (r) { var t = r.target.nodeType === 3 ? r.target.parentNode : r.target; if (t && t.tagName === 'STYLE') scan(t); else if (t === document.head) r.addedNodes.forEach(scan); }); }).observe(document.head, { childList: true, subtree: true, characterData: true });
+  document.addEventListener('DOMContentLoaded', rescan);
+  rescan();
+})(function (h) { return (function yyt(e,t){let n="https://fonts.googleapis.com/css2?";if(typeof e!="string"||e.length>1024||e.slice(0,n.length)!==n)return[];let o=e.slice(n.length).split("&");if(o.some(s=>s.slice(0,5)==="text="))return[];let r=[];for(let s of o){if(s.slice(0,7)!=="family=")continue;let i=r.length+16,a=s.slice(7).replace(/%20| /g,"+"),l=a.indexOf(":"),d=l<0?a:a.slice(0,l);if(!/^[A-Za-z0-9][A-Za-z0-9+._-]{0,99}$/.test(d))continue;let c=[["0","400"]];if(l>=0){let h=a.indexOf("@",l),g=a.slice(l+1,h<0?l:h).split(","),m=g.indexOf("ital"),b=g.indexOf("wght");if(h<0||g.some(y=>y!=="ital"&&y!=="wght"))continue;c=[];for(let y of a.slice(h+1).split(";")){let v=y.split(","),S=[m<0?"0":v[m]??"",b<0?"400":v[b]??""];if(v.length!==g.length||!/^[01]$/.test(S[0])||!/^[1-9]\d{0,3}(?:\.\.[1-9]\d{0,3})?$/.test(S[1])){c=[];break}c.push(S)}if(c.length===0)continue}let u=c.map(h=>h[0]+","+h[1]),f=t!==void 0&&Object.prototype.hasOwnProperty.call(t,d.replace(/\+/g," ").toLowerCase())?t[d.replace(/\+/g," ").toLowerCase()]:void 0,p;if(f!==void 0){let h=(g,m)=>c.some(b=>b[0]===g&&m>=Number(b[1].split("..")[0])&&m<=Number(b[1].split("..").pop()));p=[];for(let g of f.italic?["0","1"]:["0"]){if(f.wght===void 0){for(let b of f.statics??[])h(g,b)||p.push(g+","+String(b));continue}let m=0;for(let b=f.wght[0];b<=f.wght[1]+100;b+=100){let y=b<=f.wght[1]&&!h(g,b);y&&m===0&&(m=b),!y&&m!==0&&(p.push(g+","+String(m)+(b-100>m?".."+String(b-100):"")),m=0)}}}else{let h=m=>Number(m[1].split("..").pop())>=600,g=c.filter(m=>m[0]==="0");p=g.map(m=>"1,"+m[1]).concat(g.some(h)?[]:["0,700"],c.some(h)?[]:["1,700"])}for(let h of p){let g=n+"family="+d+":ital,wght@"+h+"&display=swap";u.indexOf(h)<0&&r.indexOf(g)<0&&r.length<i&&r.push(g)}}return r})(h, {"inter":{"wght":[100,900],"italic":true},"roboto":{"wght":[100,900],"italic":true},"open sans":{"wght":[300,800],"italic":true},"lato":{"statics":[100,300,400,700,900],"italic":true},"montserrat":{"wght":[100,900],"italic":true},"poppins":{"statics":[100,200,300,400,500,600,700,800,900],"italic":true},"raleway":{"wght":[100,900],"italic":true},"nunito":{"wght":[200,1000],"italic":true},"playfair display":{"wght":[400,900],"italic":true},"merriweather":{"wght":[300,900],"italic":true},"work sans":{"wght":[100,900],"italic":true},"dm sans":{"wght":[100,1000],"italic":true},"manrope":{"wght":[200,800],"italic":false},"space grotesk":{"wght":[300,700],"italic":false},"lora":{"wght":[400,700],"italic":true},"bebas neue":{"statics":[400],"italic":false},"caveat":{"wght":[400,700],"italic":false}}); });</script>
+<script src="/_f/1794768850-599a/artifact-type/dc-runtime.js"></script><style>x-dc{display:none!important}</style>
+<script>(function (s) { if (!window.React || !window.ReactDOM || typeof window.__dcUpdate !== 'function') { try { s = s && s.previousElementSibling; window.parent.postMessage({ __dc_boot_failed: 1, e: 'the artboard runtime did not load', u: s && s.getAttribute('src') }, '*'); } catch (e) {} } })(document.currentScript);</script>
+<style data-dc-tpl="1">
+
+body{margin:0}
+.app{font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;color:#cff8df;background:#010803}
+.app *{box-sizing:border-box}
+.app [data-hook=composer-input] p{margin:0}
+.app [data-hook=composer-input] p.is-editor-empty::before{content:attr(data-placeholder);float:left;height:0;pointer-events:none;color:#88bd9e}
+.app summary{list-style:none}.app summary::-webkit-details-marker{display:none}
+.paused *,.paused *::before,.paused *::after{animation-play-state:paused!important}
+.norain .rl{display:none}
+
+.app [data-hook=composer-input] p{margin:0}
+.app [data-hook=composer-input] p.is-editor-empty::before{content:attr(data-placeholder);float:left;height:0;pointer-events:none;color:#88bd9e}
+
+.rl text{writing-mode:vertical-rl;text-orientation:upright;font:21px ui-monospace,monospace;letter-spacing:4px}.rl .q{fill:#085e3c;fill-opacity:.4}.rl .r{fill:#0aa968;fill-opacity:.65}.rl .s{fill-opacity:.85}.rl .h{fill:#effff6;stroke:#0affa0;stroke-opacity:.5;stroke-width:3px;paint-order:stroke}
+:root{--g:#0affa0;--ink:#00140a;--bg:#010803;--rain:none;--spin:none}::selection{background:var(--g);color:var(--ink)}[data-hook="conversation"],[data-hook="sidebar"]{position:relative;isolation:isolate;contain:paint;background:linear-gradient(#010803d4,#010803d4),var(--rain) 0 0 / 400px 260px,var(--bg) !important}[data-hook="conversation"]::before,[data-hook="conversation"]::after,[data-hook="sidebar"]::before,[data-hook="sidebar"]::after{content:"";position:absolute;left:0;right:0;bottom:0;pointer-events:none;background:var(--rain);will-change:transform;transition:opacity .4s}[data-hook="conversation"]::before,[data-hook="sidebar"]::before{top:-650px;z-index:-1;background-size:1000px 650px;background-position-x:-230px;opacity:.6;animation:rn 3.7s steps(26) infinite}[data-hook="conversation"]::after,[data-hook="sidebar"]::after{top:-390px;z-index:-2;background-size:600px 390px;background-position-x:-90px;opacity:.42;animation:rf 8.1s steps(26) infinite}[data-hook="sidebar"]::before{background-position-x:-640px;opacity:.42}[data-hook="sidebar"]::after{background-position-x:-300px;opacity:.3}@keyframes rn{to{transform:translateY(650px)}}@keyframes rf{to{transform:translateY(390px)}}:root:has([data-hook="composer-input"]:focus) :is([data-hook="conversation"],[data-hook="sidebar"])::before{opacity:.26}:root:has([data-hook="composer-input"]:focus) :is([data-hook="conversation"],[data-hook="sidebar"])::after{opacity:.2}[data-hook="message-row"][data-role="assistant"]{background:#010803de;box-shadow:0 0 34px 26px #010803de;border-radius:12px}[data-hook="assistant-markdown"] :is(h1,h2,h3){text-shadow:0 0 12px #0affa073}[data-hook="assistant-markdown"] :is(h1,h2,h3)::before{content:"# ";color:var(--g)}[data-hook="assistant-markdown"] :not(pre)>code{color:#c9ffe4;background:#0affa01a;text-shadow:0 0 6px #0affa066}[data-hook="user-bubble"]{background:#03160b !important;border:1px solid #0affa061;border-radius:10px;box-shadow:0 0 18px #0affa024,inset 0 0 12px #0affa00f;font-family:ui-monospace,monospace}[data-hook="message-row"]{position:relative;animation:boot .55s steps(1) both}[data-hook="message-row"]::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(transparent 80%,#0affa02e 96%,var(--g));transform-origin:top;opacity:0;animation:sweep .6s ease-out}@keyframes boot{0%{opacity:0}20%{opacity:.7}35%{opacity:.1}55%{opacity:1}75%{opacity:.5}to{opacity:1}}@keyframes sweep{from{transform:scaleY(0);opacity:1}to{transform:scaleY(1);opacity:0}}[data-hook="chat-header"]{background:#010803e6 !important;border-bottom:1px solid #123522}[data-hook="chat-header"] h1{text-shadow:0 0 10px #0affa073;animation:glitch 11s steps(1) infinite}@keyframes glitch{95.6%{transform:translate(3px,-1px) skewX(-12deg);text-shadow:-2px 0 #ff2d6f,2px 0 #2de2ff}96.2%{transform:translate(-2px,1px);text-shadow:2px 0 #ff2d6f,-2px 0 #2de2ff;opacity:.6}96.8%{transform:none}}[data-hook="chat-header"]::after{content:"";position:fixed;left:0;right:0;top:0;height:140px;z-index:50;pointer-events:none;background:linear-gradient(transparent,#0affa00b,transparent);transform:translateY(-160px);animation:roll 16s linear infinite}@keyframes roll{0%{transform:translateY(-160px)}55%,to{transform:translateY(100vh)}}[data-hook="thread-row"]{background-color:#010803b3;transition:background-color .9s}[data-hook="thread-row"]:hover{background-color:#0affa01f;transition-duration:0s}[data-hook="thread-row"][data-active]{background-color:#0affa01a;box-shadow:inset 0 0 0 1px #0affa059,0 0 14px #0affa01f;text-shadow:0 0 8px #0affa073}[data-hook="thread-row"][data-running]{position:relative;overflow:hidden}[data-hook="thread-row"][data-running]::after{content:"";position:absolute;top:0;bottom:0;left:0;width:40%;pointer-events:none;background:linear-gradient(90deg,transparent,#0affa029,transparent);transform:translateX(-110%);animation:sheen 2.2s ease-in-out infinite}@keyframes sheen{to{transform:translateX(260%)}}[data-hook="project-monogram"]{background:#011207 !important;border:1px solid var(--g);color:var(--g) !important;font-family:ui-monospace,monospace;text-shadow:0 0 6px var(--g);box-shadow:0 0 8px #0affa059,inset 0 0 6px #0affa040}[class*="lucide-loader"]{stroke:transparent !important;background:var(--spin) center / contain no-repeat;animation:none !important}.lucide{stroke-width:1.75;filter:drop-shadow(0 0 3px #0affa080)}[data-hook="composer-card"]{position:relative;background:radial-gradient(120% 140% at 50% 0,#03170c,#020d06 70%) !important;border:1px solid #0affa080 !important;border-radius:12px;box-shadow:0 0 26px #0affa029,inset 0 0 18px #0affa012}[data-hook="composer-input"]::before{content:"❯";position:absolute;left:0;top:0;font:700 15px/1.5 ui-monospace,monospace;color:var(--g);text-shadow:0 0 8px var(--g)}[data-hook="composer-input"]{position:relative;padding-left:26px !important;caret-color:var(--g);font-family:ui-monospace,monospace}[data-hook="composer-card"]:has([data-hook="composer-input"]>p:only-child>br:only-child) [data-hook="composer-input"]{caret-color:transparent}[data-hook="composer-card"]:has([data-hook="composer-input"]>p:only-child>br:only-child) [data-hook="composer-input"]::after{content:"";position:absolute;left:14px;top:3px;width:9px;height:17px;background:var(--g);box-shadow:0 0 8px var(--g);animation:blink 1.05s steps(1) infinite}@keyframes blink{50%{opacity:0}}[data-hook="code-block"]{position:relative;border-radius:12px;overflow:hidden;background:radial-gradient(130% 120% at 50% 45%,#021309,#010603 70%) !important;box-shadow:0 0 0 1px #0affa04d,0 0 24px #0affa01a,inset 0 0 36px #0affa014;text-shadow:0 0 5px #0affa038}[data-hook="code-block"]::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(transparent 0 2px,#0000002e 2px 3px),radial-gradient(120% 100%,transparent 60%,#00000073)}[data-hook="terminal-drawer"]{border-top:1px solid var(--g) !important;box-shadow:0 -1px 18px #0affa02e;text-shadow:0 0 5px #0affa040}[data-hook="tooltip"]{position:relative;overflow:hidden;background:var(--g) !important;color:var(--ink) !important;font-family:ui-monospace,monospace;box-shadow:0 0 16px #0affa059}[data-hook="tooltip"]::after{content:"";position:absolute;inset:0;background:var(--g);transform-origin:right;transform:scaleX(0);animation:typeon .4s steps(12)}@keyframes typeon{from{transform:scaleX(1)}}:is([data-hook="menu"],[data-hook="popover"]){box-shadow:0 0 0 1px #0affa066,0 0 26px #0affa029,0 18px 40px #0009 !important;animation:flick .25s steps(1) both}@keyframes flick{0%{opacity:0}30%{opacity:1}50%{opacity:.3}70%{opacity:1}}[data-hook="dialog"]{box-shadow:0 0 0 1px #0affa066,0 0 40px #0affa02e !important;animation:pwr .32s cubic-bezier(.2,.8,.2,1) both}@keyframes pwr{from{scale:1.04 .02;opacity:.3}}:is([data-hook="input"],[data-hook="select"]):focus-visible{outline:none;box-shadow:0 0 0 1px var(--g),0 0 12px #0affa040 !important}[data-hook="switch"][data-state="checked"]{background:var(--g) !important;box-shadow:0 0 10px #0affa080}[data-hook="button"]:focus-visible{outline:1px solid var(--g);box-shadow:0 0 12px #0affa059}::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--g) padding-box;border:2px solid transparent;border-radius:4px;box-shadow:0 0 8px var(--g)}@media (prefers-reduced-motion:reduce){*,::before,::after{animation:none !important;transition:none !important}}:root{--w:none;--ww:none}[data-hook="composer-card"]::before,[data-hook="composer-card"]::after{content:"";position:absolute;z-index:3;left:14px;top:-15px;width:30px;height:30px;pointer-events:none}[data-hook="composer-card"]::before{background:var(--w) 0 0 / 120px 30px;transition:transform .45s steps(3)}[data-hook="composer-card"]:has([data-hook="composer-input"]:focus)::before{background-position-x:-30px;animation:wk .3s steps(3)}[data-hook="composer-card"]:not(:has([data-hook="composer-input"]>p:only-child>br:only-child))::before{background-position-x:-60px;transform:translate(1px,1px)}:root:has([data-streaming="true"],[data-thread-now-line]) [data-hook="composer-card"]::before{background:var(--ww) 0 0 / 30px !important;transform:scale(1.1) !important}:root:has([data-hook="error-alert"]) [data-hook="composer-card"]::after{background:var(--w) -90px 0 / 120px 30px;border:0;opacity:1;animation:we .8s steps(1) forwards}@keyframes wk{from{transform:scaleY(.25)}}@keyframes we{0%{transform:translate(2px)}20%{transform:translate(-2px)}40%{transform:none}70%{opacity:1}to{opacity:0}}:root:has([data-streaming="true"]) :is([data-hook="conversation"],[data-hook="sidebar"])::before{animation-play-state:paused}:root:has([data-streaming="true"]) [data-hook="composer-card"]::after{border:1px solid var(--g);border-radius:50%;clip-path:inset(0 0 50%);opacity:0;animation:rip .8s ease-out 3}@keyframes rip{from{transform:scale(.8);opacity:.6}to{transform:scale(2.2);opacity:0}}[data-hook="composer-input"]>p:only-child:has(>br:only-child){position:relative}:root:not(:has([data-hook="message-row"])) [data-hook="composer-input"]>p:only-child:has(>br:only-child)::before{content:"Wake up, Neo…"}:root:not(:has([data-hook="message-row"])) [data-hook="composer-input"]>p:only-child:has(>br:only-child)::after{content:"";position:absolute;inset:0;background:#03170c;transform-origin:right;transform:scaleX(0);animation:typeon 1.3s steps(13) .3s backwards}[data-hook="message-row"]:has([data-streaming="true"]){animation:boot .55s steps(1) both,dv .12s .3s steps(1)}@keyframes dv{from{transform:translate(6px,-3px);opacity:.5}}[data-hook="dialog"] :is([data-hook="button"][data-variant="destructive"],[data-hook="button"][data-variant="cancel"]){border:0 !important;border-radius:99px !important;color:#fff !important;background:radial-gradient(12% 32% at 13% 32%,var(--a,#6aa0ff),var(--b,#1a4ac4)) !important}[data-hook="dialog"] [data-hook="button"][data-variant="destructive"]{--a:#ff6a90;--b:#c4124b}
+
+.wch{transform-origin:center}
+@keyframes wset4{0%{transform:scale(1.1)}4%{transform:scale(1.066)}8%{transform:scale(1.033)}11%,100%{transform:none}}
+@keyframes wwake4{0%{transform:scaleY(.25)}8%,100%{transform:none}}
+@keyframes wtyp4{0%{transform:none}11%,100%{transform:translate(3.3%,3.3%)}}
+@keyframes werr4{0%{transform:translate(2px);opacity:1}4%{transform:translate(-2px)}8%,30%{transform:none;opacity:1}40%,100%{opacity:0}}
+.wch-wset{animation:wset4 4s steps(1,end) infinite}
+.wch-wwake{animation:wwake4 4s steps(1,end) infinite}
+.wch-wtyp{animation:wtyp4 4s steps(1,end) infinite}
+.wch-err{animation:werr4 4s steps(1,end) infinite}
+.wch-w text{opacity:0;animation:wwk .6s steps(1) infinite}
+.wch-w text+text{animation-delay:-.2s}.wch-w text+text+text{animation-delay:-.4s}
+@keyframes wwk{0%{opacity:1}33%{opacity:0}}
+.app:has([data-streaming="true"]) .rl-near{animation-play-state:paused}
+.still,.still *{animation:none!important}
+.still text:first-of-type{opacity:1}
+@media (prefers-reduced-motion: reduce){.wch,.wch *{animation:none!important}.wch-err{opacity:1}.wch-w text:first-of-type{opacity:1}}
+
+
+.still,.still *{animation:none!important}
+.still .eb-glyph text:first-of-type,.still .ca-head text:first-of-type{opacity:1}
+.eb-glyph text,.ca-head text{opacity:0;animation:wwk .6s steps(1) infinite}
+.eb-glyph text+text,.ca-head text+text{animation-delay:-.2s}
+.eb-glyph text+text+text,.ca-head text+text+text{animation-delay:-.4s}
+.ca-fall{animation:caf 1.1s steps(2) infinite}
+@keyframes caf{to{transform:translateY(11px)}}
+.cl-slide{animation:cls 1.6s steps(8) infinite}
+@keyframes cls{from{transform:translateX(-9px)}to{transform:translateX(9px)}}
+.dr-hop{animation:drh .5s steps(2) infinite alternate}
+.wch-wk{transform:scale(1.1)}
+@keyframes drh{to{transform:translateY(-2.4px)}}
+
+</style><style data-dc-editor-style="">body:not([data-dc-editor-overlay-hidden]) [data-dc-editor-hover][data-dc-editor-hover-stroke]:not([data-dc-editor-selected]){filter:drop-shadow(0 0 calc(1*var(--dc-chrome-unit,1px)) color-mix(in srgb,#2a78d6 90%,transparent)) drop-shadow(0 0 calc(2*var(--dc-chrome-unit,1px)) color-mix(in srgb,#2a78d6 55%,transparent))!important;}body:not([data-dc-editor-overlay-hidden]):not([data-dc-editor-proxy="copy"]) [data-dc-editor-dragging],body:not([data-dc-editor-overlay-hidden]):not([data-dc-editor-proxy]) [data-dc-dragging],body[data-dc-editor-brk]:not([data-dc-editor-overlay-hidden]) [data-dc-drag-follower]{outline:calc(2*var(--dc-chrome-unit,1px)) solid #2a78d6!important;outline-offset:calc(-1*var(--dc-chrome-unit,1px))!important;opacity:0.55!important;}body[data-dc-editor-proxy="move"]:not([data-dc-editor-overlay-hidden]) [data-dc-editor-dragging],body[data-dc-editor-proxy="move"]:not([data-dc-editor-overlay-hidden]) [data-dc-dragging],body[data-dc-editor-proxy="move"]:not([data-dc-editor-overlay-hidden]) [data-dc-editor-dragging]>*,body[data-dc-editor-proxy="move"]:not([data-dc-editor-overlay-hidden]) [data-dc-dragging]>*{opacity:0!important;outline:none!important;}[data-dc-editor-drag-proxy],[data-dc-editor-drag-proxy] *{pointer-events:none!important;}body[data-dc-editor-no-anchor],body[data-dc-editor-no-anchor] *{overflow-anchor:none!important;}body[data-dc-editor-on]:not([data-dc-editor-tool="interact"]) *{cursor:default!important;user-select:none!important;}body[data-dc-editor-on]:not([data-dc-editor-tool="interact"]) :not([data-dc-editor-overlay-root]):not([data-dc-editor-overlay-root] *){pointer-events:auto!important;transition:none!important;animation:none!important;}body[data-dc-editor-on][data-dc-editor-brk]:not([data-dc-editor-overlay-hidden]) [data-dc-editor-dragging]:not([data-dc-editor-overlay-root]) :not([data-dc-editor-overlay-root]),body[data-dc-editor-on][data-dc-editor-brk]:not([data-dc-editor-overlay-hidden]) [data-dc-dragging]:not([data-dc-editor-overlay-root]) :not([data-dc-editor-overlay-root]),body[data-dc-editor-on][data-dc-editor-brk]:not([data-dc-editor-overlay-hidden]) [data-dc-drag-follower]:not([data-dc-editor-overlay-root]),body[data-dc-editor-on][data-dc-editor-brk]:not([data-dc-editor-overlay-hidden]) [data-dc-drag-follower]:not([data-dc-editor-overlay-root]) :not([data-dc-editor-overlay-root]),body[data-dc-editor-move][data-dc-editor-brk]:not([data-dc-editor-overlay-hidden]) [data-dc-editor-dragging]:not([data-dc-editor-overlay-root]) :not([data-dc-editor-overlay-root]),body[data-dc-editor-move][data-dc-editor-brk]:not([data-dc-editor-overlay-hidden]) [data-dc-dragging]:not([data-dc-editor-overlay-root]) :not([data-dc-editor-overlay-root]),body[data-dc-editor-move][data-dc-editor-brk]:not([data-dc-editor-overlay-hidden]) [data-dc-drag-follower]:not([data-dc-editor-overlay-root]),body[data-dc-editor-move][data-dc-editor-brk]:not([data-dc-editor-overlay-hidden]) [data-dc-drag-follower]:not([data-dc-editor-overlay-root]) :not([data-dc-editor-overlay-root]){pointer-events:none!important;}body[data-dc-editor-move] :not([data-dc-editor-overlay-root]):not([data-dc-editor-overlay-root] *){pointer-events:auto!important;transition:none!important;animation-duration:0s!important;animation-delay:0s!important;}body[data-dc-editor-on][data-dc-editor-tool="rect"] *,body[data-dc-editor-on][data-dc-editor-tool="frame"] *,body[data-dc-editor-on][data-dc-editor-tool="grid"] *,body[data-dc-editor-on][data-dc-editor-tool="oval"] *,body[data-dc-editor-on][data-dc-editor-tool="arrow"] *,body[data-dc-editor-on][data-dc-editor-tool="line"] *{cursor:crosshair!important;}body[data-dc-editor-on][data-dc-editor-tool="text"] *{cursor:text!important;}body[data-dc-editor-on][data-dc-editor-tool="draw"] *{cursor:url('data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2216%22%20height=%2216%22%20viewBox=%220%200%2016%2016%22%3E%3Cpath%20d=%22M2%2014l1-4%208-8a2.1%202.1%200%200%201%203%203l-8%208-4%201z%22%20fill=%22%23333%22%20stroke=%22%23fff%22%20stroke-width=%221%22/%3E%3C/svg%3E') 1 15, crosshair!important;}body[data-dc-editor-on]:not([data-dc-editor-tool]) [data-drags-parent],body[data-dc-editor-on]:not([data-dc-editor-tool]) [data-drags-parent] *{cursor:grab!important;}body[data-dc-editor-on]:not([data-dc-editor-tool]) [data-drags-parent]:active,body[data-dc-editor-on]:not([data-dc-editor-tool]) [data-drags-parent]:active *{cursor:grabbing!important;}body[data-dc-editor-on] [data-dc-editor-editing][contenteditable][contenteditable],body[data-dc-editor-on] [data-dc-editor-editing][contenteditable][contenteditable] *,body[data-dc-editor-on] [data-dc-editor-svg-editing]{cursor:text!important;}body[data-dc-editor-on] [data-dc-editor-editing="import"]{outline:none!important;}html:not([data-dc-canvas]):has(body[data-dc-editor-on]:not([data-dc-capturing]) .sc-host){background:var(--dc-editor-backdrop,#ededeb);}html:not([data-dc-canvas]) body[data-dc-editor-on]:not([data-dc-capturing]):has(.sc-host){background:var(--dc-editor-backdrop,#ededeb);}html:not([data-dc-canvas]) body[data-dc-editor-on] .sc-host:not(.sc-host .sc-host){min-height:calc(100vh - var(--dc-editor-host-vpad,0px));}html:not([data-dc-canvas]) body[data-dc-editor-on]:not([data-dc-capturing]) .sc-host:not(.sc-host .sc-host){background:var(--dc-editor-host-bg,#fff);}html[data-dc-frameless],html[data-dc-frameless] body[data-dc-editor-on],html[data-dc-frameless] body[data-dc-editor-on] .sc-host:not(.sc-host .sc-host){background:transparent!important;min-height:0!important;}html:has(body[data-dc-capturing]),body[data-dc-capturing]{transition:none!important;}html[data-dc-canvas]{overflow:hidden;}html[data-dc-canvas] body[data-dc-editor-on] .sc-host:not(.sc-host .sc-host)::before{content:"";position:absolute;left:-100000px;top:-100000px;width:200000px;height:200000px;pointer-events:none;background:repeating-linear-gradient(45deg,var(--dc-editor-hatch-ink,rgba(0,0,0,.05)) 0 8px,transparent 8px 16px);clip-path:polygon(0 0,100% 0,100% 50%,50% 50%,50% 100%,0 100%);}</style></head>
+<body>
+<div id="dc-root"><div class="sc-host" data-sc-name="R4-Watcher-in-place"><div data-dc-tpl="2" class="app " style="width: 1440px; height: 1900px; box-sizing: border-box; padding: 36px 40px; background: rgb(1, 8, 3); color: rgb(207, 248, 223); font-family: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif; display: flex; flex-direction: column; gap: 14px;"><div data-dc-tpl="3" style="display: flex; align-items: baseline; gap: 18px; margin-bottom: 10px;"><h1 data-dc-tpl="4" style="margin: 0px; font: 700 22px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace;">Watcher — in place</h1><span data-dc-tpl="5" style="font: 12px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(136, 189, 158);">sentinel eye · composer card ::before (error copy and rings on ::after) · one-shots repeat every 4 s here</span></div><div data-dc-tpl="6" style="display: grid; grid-template-columns: 190px 640px 420px; gap: 40px; font: 600 12px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; letter-spacing: 0.06em; color: rgb(136, 189, 158);"><div data-dc-tpl="7">STATE</div><div data-dc-tpl="8">1.5×</div><div data-dc-tpl="9">1× · REAL SIZE · 30 PX</div></div><div data-dc-tpl="10"><div data-dc-tpl="11" style="display: grid; grid-template-columns: 190px 640px 420px; gap: 40px; align-items: start; padding: 22px 0px; border-top: 1px solid rgb(18, 53, 34);"><div data-dc-tpl="12" style="display: flex; flex-direction: column; gap: 8px; padding-top: 18px;"><div data-dc-tpl="13" style="font: 700 13px / 1.2 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(207, 248, 223); text-transform: uppercase; letter-spacing: 0.05em;">idle</div><div data-dc-tpl="14" style="font: 12px / 1.4 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(136, 189, 158);">shut, completely still</div></div><div data-dc-tpl="15" style="width: 640px; height: 196px; overflow: visible;"><div data-dc-tpl="16" style="width: 420px; transform: scale(1.5); transform-origin: 0px 0px; padding-top: 18px;"><form data-dc-tpl="17" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="18" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="19" class="wch  " aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden;"><svg data-dc-tpl="20" aria-hidden="true" width="120" height="30" viewBox="0 0 112 28" style="display: block; margin-left: 0px;"><defs data-dc-tpl="21"><circle data-dc-tpl="22" id="w1s" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="23" id="w1e" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z" fill="#021009"></path></defs><g data-dc-tpl="24" fill="none" stroke="#0affa0" stroke-width="1.15"><use data-dc-tpl="25" href="#w1s"></use><path data-dc-tpl="26" d="M6.5 14Q14 18.5 21.5 14"></path><use data-dc-tpl="27" href="#w1s" x="28"></use><use data-dc-tpl="28" href="#w1e" x="28"></use><circle data-dc-tpl="29" cx="42" cy="14" r="4"></circle><circle data-dc-tpl="30" cx="42" cy="14" r="1.8" fill="#effff6"></circle><use data-dc-tpl="31" href="#w1s" x="56"></use><path data-dc-tpl="32" d="M61.5 14Q70 8.5 78.5 14Q70 21 61.5 14z" fill="#021009"></path><circle data-dc-tpl="33" cx="73.2" cy="14.8" r="3.2"></circle><circle data-dc-tpl="34" cx="73.2" cy="14.8" r="1.5" fill="#effff6"></circle><g data-dc-tpl="35" stroke="#ff2d6f"><use data-dc-tpl="36" href="#w1s" x="84"></use><use data-dc-tpl="37" href="#w1e" x="84"></use><circle data-dc-tpl="38" cx="98" cy="14" r="2.4" fill="#ff2d6f"></circle></g></g></svg></span><div data-dc-tpl="39" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="40" class="is-editor-empty" data-placeholder="Ask for follow-up changes"><br data-dc-tpl="41"></p></div><div data-dc-tpl="42" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="43" style="position: relative; display: flex;"><button data-dc-tpl="44" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="45" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="46" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="47" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="48" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="49" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="50" style="flex: 1 1 0%;"></div><button data-dc-tpl="51" type="button" data-hook="button" aria-label="Send" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: rgb(10, 255, 160); cursor: pointer; box-shadow: rgba(10, 255, 160, 0.5) 0px 0px 16px;"><svg data-dc-tpl="52" class="lucide lucide-arrow-up" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00140a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="53" d="m5 12 7-7 7 7"></path><path data-dc-tpl="54" d="M12 19V5"></path></svg></button></div></div></form></div></div><div data-dc-tpl="55" style="width: 420px; padding-top: 18px;"><form data-dc-tpl="56" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="57" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="58" class="wch  " aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden;"><svg data-dc-tpl="59" aria-hidden="true" width="120" height="30" viewBox="0 0 112 28" style="display: block; margin-left: 0px;"><defs data-dc-tpl="60"><circle data-dc-tpl="61" id="w2s" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="62" id="w2e" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z" fill="#021009"></path></defs><g data-dc-tpl="63" fill="none" stroke="#0affa0" stroke-width="1.15"><use data-dc-tpl="64" href="#w2s"></use><path data-dc-tpl="65" d="M6.5 14Q14 18.5 21.5 14"></path><use data-dc-tpl="66" href="#w2s" x="28"></use><use data-dc-tpl="67" href="#w2e" x="28"></use><circle data-dc-tpl="68" cx="42" cy="14" r="4"></circle><circle data-dc-tpl="69" cx="42" cy="14" r="1.8" fill="#effff6"></circle><use data-dc-tpl="70" href="#w2s" x="56"></use><path data-dc-tpl="71" d="M61.5 14Q70 8.5 78.5 14Q70 21 61.5 14z" fill="#021009"></path><circle data-dc-tpl="72" cx="73.2" cy="14.8" r="3.2"></circle><circle data-dc-tpl="73" cx="73.2" cy="14.8" r="1.5" fill="#effff6"></circle><g data-dc-tpl="74" stroke="#ff2d6f"><use data-dc-tpl="75" href="#w2s" x="84"></use><use data-dc-tpl="76" href="#w2e" x="84"></use><circle data-dc-tpl="77" cx="98" cy="14" r="2.4" fill="#ff2d6f"></circle></g></g></svg></span><div data-dc-tpl="78" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="79" class="is-editor-empty" data-placeholder="Ask for follow-up changes"><br data-dc-tpl="80"></p></div><div data-dc-tpl="81" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="82" style="position: relative; display: flex;"><button data-dc-tpl="83" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="84" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="85" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="86" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="87" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="88" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="89" style="flex: 1 1 0%;"></div><button data-dc-tpl="90" type="button" data-hook="button" aria-label="Send" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: rgb(10, 255, 160); cursor: pointer; box-shadow: rgba(10, 255, 160, 0.5) 0px 0px 16px;"><svg data-dc-tpl="91" class="lucide lucide-arrow-up" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00140a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="92" d="m5 12 7-7 7 7"></path><path data-dc-tpl="93" d="M12 19V5"></path></svg></button></div></div></form></div></div><div data-dc-tpl="94" style="display: grid; grid-template-columns: 190px 640px 420px; gap: 40px; align-items: start; padding: 22px 0px; border-top: 1px solid rgb(18, 53, 34);"><div data-dc-tpl="95" style="display: flex; flex-direction: column; gap: 8px; padding-top: 18px;"><div data-dc-tpl="96" style="font: 700 13px / 1.2 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(207, 248, 223); text-transform: uppercase; letter-spacing: 0.05em;">focused</div><div data-dc-tpl="97" style="font: 12px / 1.4 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(136, 189, 158);">opens once, looks at you</div></div><div data-dc-tpl="98" style="width: 640px; height: 196px; overflow: visible;"><div data-dc-tpl="99" style="width: 420px; transform: scale(1.5); transform-origin: 0px 0px; padding-top: 18px;"><form data-dc-tpl="100" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="101" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="102" class="wch wch-wwake " aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden;"><svg data-dc-tpl="103" aria-hidden="true" width="120" height="30" viewBox="0 0 112 28" style="display: block; margin-left: -30px;"><defs data-dc-tpl="104"><circle data-dc-tpl="105" id="w3s" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="106" id="w3e" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z" fill="#021009"></path></defs><g data-dc-tpl="107" fill="none" stroke="#0affa0" stroke-width="1.15"><use data-dc-tpl="108" href="#w3s"></use><path data-dc-tpl="109" d="M6.5 14Q14 18.5 21.5 14"></path><use data-dc-tpl="110" href="#w3s" x="28"></use><use data-dc-tpl="111" href="#w3e" x="28"></use><circle data-dc-tpl="112" cx="42" cy="14" r="4"></circle><circle data-dc-tpl="113" cx="42" cy="14" r="1.8" fill="#effff6"></circle><use data-dc-tpl="114" href="#w3s" x="56"></use><path data-dc-tpl="115" d="M61.5 14Q70 8.5 78.5 14Q70 21 61.5 14z" fill="#021009"></path><circle data-dc-tpl="116" cx="73.2" cy="14.8" r="3.2"></circle><circle data-dc-tpl="117" cx="73.2" cy="14.8" r="1.5" fill="#effff6"></circle><g data-dc-tpl="118" stroke="#ff2d6f"><use data-dc-tpl="119" href="#w3s" x="84"></use><use data-dc-tpl="120" href="#w3e" x="84"></use><circle data-dc-tpl="121" cx="98" cy="14" r="2.4" fill="#ff2d6f"></circle></g></g></svg></span><div data-dc-tpl="122" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="123" class="is-editor-empty" data-placeholder="Ask for follow-up changes"><br data-dc-tpl="124"></p></div><div data-dc-tpl="125" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="126" style="position: relative; display: flex;"><button data-dc-tpl="127" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="128" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="129" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="130" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="131" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="132" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="133" style="flex: 1 1 0%;"></div><button data-dc-tpl="134" type="button" data-hook="button" aria-label="Send" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: rgb(10, 255, 160); cursor: pointer; box-shadow: rgba(10, 255, 160, 0.5) 0px 0px 16px;"><svg data-dc-tpl="135" class="lucide lucide-arrow-up" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00140a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="136" d="m5 12 7-7 7 7"></path><path data-dc-tpl="137" d="M12 19V5"></path></svg></button></div></div></form></div></div><div data-dc-tpl="138" style="width: 420px; padding-top: 18px;"><form data-dc-tpl="139" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="140" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="141" class="wch wch-wwake " aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden;"><svg data-dc-tpl="142" aria-hidden="true" width="120" height="30" viewBox="0 0 112 28" style="display: block; margin-left: -30px;"><defs data-dc-tpl="143"><circle data-dc-tpl="144" id="w4s" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="145" id="w4e" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z" fill="#021009"></path></defs><g data-dc-tpl="146" fill="none" stroke="#0affa0" stroke-width="1.15"><use data-dc-tpl="147" href="#w4s"></use><path data-dc-tpl="148" d="M6.5 14Q14 18.5 21.5 14"></path><use data-dc-tpl="149" href="#w4s" x="28"></use><use data-dc-tpl="150" href="#w4e" x="28"></use><circle data-dc-tpl="151" cx="42" cy="14" r="4"></circle><circle data-dc-tpl="152" cx="42" cy="14" r="1.8" fill="#effff6"></circle><use data-dc-tpl="153" href="#w4s" x="56"></use><path data-dc-tpl="154" d="M61.5 14Q70 8.5 78.5 14Q70 21 61.5 14z" fill="#021009"></path><circle data-dc-tpl="155" cx="73.2" cy="14.8" r="3.2"></circle><circle data-dc-tpl="156" cx="73.2" cy="14.8" r="1.5" fill="#effff6"></circle><g data-dc-tpl="157" stroke="#ff2d6f"><use data-dc-tpl="158" href="#w4s" x="84"></use><use data-dc-tpl="159" href="#w4e" x="84"></use><circle data-dc-tpl="160" cx="98" cy="14" r="2.4" fill="#ff2d6f"></circle></g></g></svg></span><div data-dc-tpl="161" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="162" class="is-editor-empty" data-placeholder="Ask for follow-up changes"><br data-dc-tpl="163"></p></div><div data-dc-tpl="164" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="165" style="position: relative; display: flex;"><button data-dc-tpl="166" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="167" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="168" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="169" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="170" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="171" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="172" style="flex: 1 1 0%;"></div><button data-dc-tpl="173" type="button" data-hook="button" aria-label="Send" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: rgb(10, 255, 160); cursor: pointer; box-shadow: rgba(10, 255, 160, 0.5) 0px 0px 16px;"><svg data-dc-tpl="174" class="lucide lucide-arrow-up" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00140a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="175" d="m5 12 7-7 7 7"></path><path data-dc-tpl="176" d="M12 19V5"></path></svg></button></div></div></form></div></div><div data-dc-tpl="177" style="display: grid; grid-template-columns: 190px 640px 420px; gap: 40px; align-items: start; padding: 22px 0px; border-top: 1px solid rgb(18, 53, 34);"><div data-dc-tpl="178" style="display: flex; flex-direction: column; gap: 8px; padding-top: 18px;"><div data-dc-tpl="179" style="font: 700 13px / 1.2 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(207, 248, 223); text-transform: uppercase; letter-spacing: 0.05em;">typing</div><div data-dc-tpl="180" style="font: 12px / 1.4 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(136, 189, 158);">lids narrow, glances at the text</div></div><div data-dc-tpl="181" style="width: 640px; height: 196px; overflow: visible;"><div data-dc-tpl="182" style="width: 420px; transform: scale(1.5); transform-origin: 0px 0px; padding-top: 18px;"><form data-dc-tpl="183" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="184" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="185" class="wch wch-wtyp " aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden;"><svg data-dc-tpl="186" aria-hidden="true" width="120" height="30" viewBox="0 0 112 28" style="display: block; margin-left: -60px;"><defs data-dc-tpl="187"><circle data-dc-tpl="188" id="w5s" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="189" id="w5e" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z" fill="#021009"></path></defs><g data-dc-tpl="190" fill="none" stroke="#0affa0" stroke-width="1.15"><use data-dc-tpl="191" href="#w5s"></use><path data-dc-tpl="192" d="M6.5 14Q14 18.5 21.5 14"></path><use data-dc-tpl="193" href="#w5s" x="28"></use><use data-dc-tpl="194" href="#w5e" x="28"></use><circle data-dc-tpl="195" cx="42" cy="14" r="4"></circle><circle data-dc-tpl="196" cx="42" cy="14" r="1.8" fill="#effff6"></circle><use data-dc-tpl="197" href="#w5s" x="56"></use><path data-dc-tpl="198" d="M61.5 14Q70 8.5 78.5 14Q70 21 61.5 14z" fill="#021009"></path><circle data-dc-tpl="199" cx="73.2" cy="14.8" r="3.2"></circle><circle data-dc-tpl="200" cx="73.2" cy="14.8" r="1.5" fill="#effff6"></circle><g data-dc-tpl="201" stroke="#ff2d6f"><use data-dc-tpl="202" href="#w5s" x="84"></use><use data-dc-tpl="203" href="#w5e" x="84"></use><circle data-dc-tpl="204" cx="98" cy="14" r="2.4" fill="#ff2d6f"></circle></g></g></svg></span><div data-dc-tpl="205" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="206">add a test for the abort path</p></div><div data-dc-tpl="207" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="208" style="position: relative; display: flex;"><button data-dc-tpl="209" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="210" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="211" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="212" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="213" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="214" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="215" style="flex: 1 1 0%;"></div><button data-dc-tpl="216" type="button" data-hook="button" aria-label="Send" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: rgb(10, 255, 160); cursor: pointer; box-shadow: rgba(10, 255, 160, 0.5) 0px 0px 16px;"><svg data-dc-tpl="217" class="lucide lucide-arrow-up" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00140a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="218" d="m5 12 7-7 7 7"></path><path data-dc-tpl="219" d="M12 19V5"></path></svg></button></div></div></form></div></div><div data-dc-tpl="220" style="width: 420px; padding-top: 18px;"><form data-dc-tpl="221" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="222" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="223" class="wch wch-wtyp " aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden;"><svg data-dc-tpl="224" aria-hidden="true" width="120" height="30" viewBox="0 0 112 28" style="display: block; margin-left: -60px;"><defs data-dc-tpl="225"><circle data-dc-tpl="226" id="w6s" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="227" id="w6e" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z" fill="#021009"></path></defs><g data-dc-tpl="228" fill="none" stroke="#0affa0" stroke-width="1.15"><use data-dc-tpl="229" href="#w6s"></use><path data-dc-tpl="230" d="M6.5 14Q14 18.5 21.5 14"></path><use data-dc-tpl="231" href="#w6s" x="28"></use><use data-dc-tpl="232" href="#w6e" x="28"></use><circle data-dc-tpl="233" cx="42" cy="14" r="4"></circle><circle data-dc-tpl="234" cx="42" cy="14" r="1.8" fill="#effff6"></circle><use data-dc-tpl="235" href="#w6s" x="56"></use><path data-dc-tpl="236" d="M61.5 14Q70 8.5 78.5 14Q70 21 61.5 14z" fill="#021009"></path><circle data-dc-tpl="237" cx="73.2" cy="14.8" r="3.2"></circle><circle data-dc-tpl="238" cx="73.2" cy="14.8" r="1.5" fill="#effff6"></circle><g data-dc-tpl="239" stroke="#ff2d6f"><use data-dc-tpl="240" href="#w6s" x="84"></use><use data-dc-tpl="241" href="#w6e" x="84"></use><circle data-dc-tpl="242" cx="98" cy="14" r="2.4" fill="#ff2d6f"></circle></g></g></svg></span><div data-dc-tpl="243" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="244">add a test for the abort path</p></div><div data-dc-tpl="245" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="246" style="position: relative; display: flex;"><button data-dc-tpl="247" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="248" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="249" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="250" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="251" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="252" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="253" style="flex: 1 1 0%;"></div><button data-dc-tpl="254" type="button" data-hook="button" aria-label="Send" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: rgb(10, 255, 160); cursor: pointer; box-shadow: rgba(10, 255, 160, 0.5) 0px 0px 16px;"><svg data-dc-tpl="255" class="lucide lucide-arrow-up" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00140a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="256" d="m5 12 7-7 7 7"></path><path data-dc-tpl="257" d="M12 19V5"></path></svg></button></div></div></form></div></div><div data-dc-tpl="258" style="display: grid; grid-template-columns: 190px 640px 420px; gap: 40px; align-items: start; padding: 22px 0px; border-top: 1px solid rgb(18, 53, 34);"><div data-dc-tpl="259" style="display: flex; flex-direction: column; gap: 8px; padding-top: 18px;"><div data-dc-tpl="260" style="font: 700 13px / 1.2 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(207, 248, 223); text-transform: uppercase; letter-spacing: 0.05em;">working · streaming</div><div data-dc-tpl="261" style="font: 12px / 1.4 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(136, 189, 158);">one bold glyph cycles in the iris</div></div><div data-dc-tpl="262" style="width: 640px; height: 196px; overflow: visible;"><div data-dc-tpl="263" style="width: 420px; transform: scale(1.5); transform-origin: 0px 0px; padding-top: 18px;"><form data-dc-tpl="264" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="265" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="266" class="wch wch-w " aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden; transform: scale(1.1);"><svg data-dc-tpl="267" aria-hidden="true" width="30" height="30" viewBox="0 0 28 28" style="display: block;"><g data-dc-tpl="268" fill="#021009" stroke="#0affa0" stroke-width="1.15"><circle data-dc-tpl="269" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="270" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z"></path></g><g data-dc-tpl="271" fill="#effff6" font-size="9.5" font-weight="700" text-anchor="middle"><text data-dc-tpl="272" x="14" y="17.4">ア</text><text data-dc-tpl="273" x="14" y="17.4">7</text><text data-dc-tpl="274" x="14" y="17.4">ヌ</text></g></svg></span><div data-dc-tpl="275" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="276" class="is-editor-empty" data-placeholder="Ask for follow-up changes"><br data-dc-tpl="277"></p></div><div data-dc-tpl="278" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="279" style="position: relative; display: flex;"><button data-dc-tpl="280" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="281" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="282" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="283" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="284" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="285" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="286" style="flex: 1 1 0%;"></div><button data-dc-tpl="287" type="button" data-hook="button" aria-label="Stop" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid rgb(10, 255, 160); border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="288" class="lucide lucide-square" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0affa0" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><rect data-dc-tpl="289" width="12" height="12" x="6" y="6" rx="1.5"></rect></svg></button></div></div></form></div></div><div data-dc-tpl="290" style="width: 420px; padding-top: 18px;"><form data-dc-tpl="291" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="292" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="293" class="wch wch-w " aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden; transform: scale(1.1);"><svg data-dc-tpl="294" aria-hidden="true" width="30" height="30" viewBox="0 0 28 28" style="display: block;"><g data-dc-tpl="295" fill="#021009" stroke="#0affa0" stroke-width="1.15"><circle data-dc-tpl="296" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="297" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z"></path></g><g data-dc-tpl="298" fill="#effff6" font-size="9.5" font-weight="700" text-anchor="middle"><text data-dc-tpl="299" x="14" y="17.4">ア</text><text data-dc-tpl="300" x="14" y="17.4">7</text><text data-dc-tpl="301" x="14" y="17.4">ヌ</text></g></svg></span><div data-dc-tpl="302" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="303" class="is-editor-empty" data-placeholder="Ask for follow-up changes"><br data-dc-tpl="304"></p></div><div data-dc-tpl="305" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="306" style="position: relative; display: flex;"><button data-dc-tpl="307" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="308" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="309" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="310" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="311" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="312" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="313" style="flex: 1 1 0%;"></div><button data-dc-tpl="314" type="button" data-hook="button" aria-label="Stop" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid rgb(10, 255, 160); border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="315" class="lucide lucide-square" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0affa0" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><rect data-dc-tpl="316" width="12" height="12" x="6" y="6" rx="1.5"></rect></svg></button></div></div></form></div></div><div data-dc-tpl="317" style="display: grid; grid-template-columns: 190px 640px 420px; gap: 40px; align-items: start; padding: 22px 0px; border-top: 1px solid rgb(18, 53, 34);"><div data-dc-tpl="318" style="display: flex; flex-direction: column; gap: 8px; padding-top: 18px;"><div data-dc-tpl="319" style="font: 700 13px / 1.2 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(207, 248, 223); text-transform: uppercase; letter-spacing: 0.05em;">done</div><div data-dc-tpl="320" style="font: 12px / 1.4 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(136, 189, 158);">steps back from 1.1× in 3 steps</div></div><div data-dc-tpl="321" style="width: 640px; height: 196px; overflow: visible;"><div data-dc-tpl="322" style="width: 420px; transform: scale(1.5); transform-origin: 0px 0px; padding-top: 18px;"><form data-dc-tpl="323" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="324" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="325" class="wch wch-wset " aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden;"><svg data-dc-tpl="326" aria-hidden="true" width="120" height="30" viewBox="0 0 112 28" style="display: block; margin-left: 0px;"><defs data-dc-tpl="327"><circle data-dc-tpl="328" id="w9s" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="329" id="w9e" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z" fill="#021009"></path></defs><g data-dc-tpl="330" fill="none" stroke="#0affa0" stroke-width="1.15"><use data-dc-tpl="331" href="#w9s"></use><path data-dc-tpl="332" d="M6.5 14Q14 18.5 21.5 14"></path><use data-dc-tpl="333" href="#w9s" x="28"></use><use data-dc-tpl="334" href="#w9e" x="28"></use><circle data-dc-tpl="335" cx="42" cy="14" r="4"></circle><circle data-dc-tpl="336" cx="42" cy="14" r="1.8" fill="#effff6"></circle><use data-dc-tpl="337" href="#w9s" x="56"></use><path data-dc-tpl="338" d="M61.5 14Q70 8.5 78.5 14Q70 21 61.5 14z" fill="#021009"></path><circle data-dc-tpl="339" cx="73.2" cy="14.8" r="3.2"></circle><circle data-dc-tpl="340" cx="73.2" cy="14.8" r="1.5" fill="#effff6"></circle><g data-dc-tpl="341" stroke="#ff2d6f"><use data-dc-tpl="342" href="#w9s" x="84"></use><use data-dc-tpl="343" href="#w9e" x="84"></use><circle data-dc-tpl="344" cx="98" cy="14" r="2.4" fill="#ff2d6f"></circle></g></g></svg></span><div data-dc-tpl="345" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="346" class="is-editor-empty" data-placeholder="Ask for follow-up changes"><br data-dc-tpl="347"></p></div><div data-dc-tpl="348" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="349" style="position: relative; display: flex;"><button data-dc-tpl="350" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="351" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="352" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="353" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="354" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="355" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="356" style="flex: 1 1 0%;"></div><button data-dc-tpl="357" type="button" data-hook="button" aria-label="Send" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: rgb(10, 255, 160); cursor: pointer; box-shadow: rgba(10, 255, 160, 0.5) 0px 0px 16px;"><svg data-dc-tpl="358" class="lucide lucide-arrow-up" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00140a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="359" d="m5 12 7-7 7 7"></path><path data-dc-tpl="360" d="M12 19V5"></path></svg></button></div></div></form></div></div><div data-dc-tpl="361" style="width: 420px; padding-top: 18px;"><form data-dc-tpl="362" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="363" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="364" class="wch wch-wset " aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden;"><svg data-dc-tpl="365" aria-hidden="true" width="120" height="30" viewBox="0 0 112 28" style="display: block; margin-left: 0px;"><defs data-dc-tpl="366"><circle data-dc-tpl="367" id="w10s" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="368" id="w10e" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z" fill="#021009"></path></defs><g data-dc-tpl="369" fill="none" stroke="#0affa0" stroke-width="1.15"><use data-dc-tpl="370" href="#w10s"></use><path data-dc-tpl="371" d="M6.5 14Q14 18.5 21.5 14"></path><use data-dc-tpl="372" href="#w10s" x="28"></use><use data-dc-tpl="373" href="#w10e" x="28"></use><circle data-dc-tpl="374" cx="42" cy="14" r="4"></circle><circle data-dc-tpl="375" cx="42" cy="14" r="1.8" fill="#effff6"></circle><use data-dc-tpl="376" href="#w10s" x="56"></use><path data-dc-tpl="377" d="M61.5 14Q70 8.5 78.5 14Q70 21 61.5 14z" fill="#021009"></path><circle data-dc-tpl="378" cx="73.2" cy="14.8" r="3.2"></circle><circle data-dc-tpl="379" cx="73.2" cy="14.8" r="1.5" fill="#effff6"></circle><g data-dc-tpl="380" stroke="#ff2d6f"><use data-dc-tpl="381" href="#w10s" x="84"></use><use data-dc-tpl="382" href="#w10e" x="84"></use><circle data-dc-tpl="383" cx="98" cy="14" r="2.4" fill="#ff2d6f"></circle></g></g></svg></span><div data-dc-tpl="384" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="385" class="is-editor-empty" data-placeholder="Ask for follow-up changes"><br data-dc-tpl="386"></p></div><div data-dc-tpl="387" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="388" style="position: relative; display: flex;"><button data-dc-tpl="389" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="390" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="391" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="392" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="393" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="394" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="395" style="flex: 1 1 0%;"></div><button data-dc-tpl="396" type="button" data-hook="button" aria-label="Send" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: rgb(10, 255, 160); cursor: pointer; box-shadow: rgba(10, 255, 160, 0.5) 0px 0px 16px;"><svg data-dc-tpl="397" class="lucide lucide-arrow-up" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00140a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="398" d="m5 12 7-7 7 7"></path><path data-dc-tpl="399" d="M12 19V5"></path></svg></button></div></div></form></div></div><div data-dc-tpl="400" style="display: grid; grid-template-columns: 190px 640px 420px; gap: 40px; align-items: start; padding: 22px 0px; border-top: 1px solid rgb(18, 53, 34);"><div data-dc-tpl="401" style="display: flex; flex-direction: column; gap: 8px; padding-top: 18px;"><div data-dc-tpl="402" style="font: 700 13px / 1.2 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(207, 248, 223); text-transform: uppercase; letter-spacing: 0.05em;">error</div><div data-dc-tpl="403" style="font: 12px / 1.4 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(136, 189, 158);">red copy jitters, holds, fades</div></div><div data-dc-tpl="404" style="width: 640px; height: 262px; overflow: visible;"><div data-dc-tpl="405" style="width: 420px; transform: scale(1.5); transform-origin: 0px 0px; padding-top: 18px;"><div data-dc-tpl="406" style="margin: 0px 0px 22px; padding: 8px 12px; border: 1px solid rgba(255, 45, 111, 0.4); border-radius: 8px; background: rgb(26, 3, 9); color: rgb(255, 194, 207); font: 12px / 1.4 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;">Request failed: the model returned 529 (overloaded).</div><form data-dc-tpl="407" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="408" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="409" class="wch  " aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden;"><svg data-dc-tpl="410" aria-hidden="true" width="120" height="30" viewBox="0 0 112 28" style="display: block; margin-left: 0px;"><defs data-dc-tpl="411"><circle data-dc-tpl="412" id="w11s" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="413" id="w11e" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z" fill="#021009"></path></defs><g data-dc-tpl="414" fill="none" stroke="#0affa0" stroke-width="1.15"><use data-dc-tpl="415" href="#w11s"></use><path data-dc-tpl="416" d="M6.5 14Q14 18.5 21.5 14"></path><use data-dc-tpl="417" href="#w11s" x="28"></use><use data-dc-tpl="418" href="#w11e" x="28"></use><circle data-dc-tpl="419" cx="42" cy="14" r="4"></circle><circle data-dc-tpl="420" cx="42" cy="14" r="1.8" fill="#effff6"></circle><use data-dc-tpl="421" href="#w11s" x="56"></use><path data-dc-tpl="422" d="M61.5 14Q70 8.5 78.5 14Q70 21 61.5 14z" fill="#021009"></path><circle data-dc-tpl="423" cx="73.2" cy="14.8" r="3.2"></circle><circle data-dc-tpl="424" cx="73.2" cy="14.8" r="1.5" fill="#effff6"></circle><g data-dc-tpl="425" stroke="#ff2d6f"><use data-dc-tpl="426" href="#w11s" x="84"></use><use data-dc-tpl="427" href="#w11e" x="84"></use><circle data-dc-tpl="428" cx="98" cy="14" r="2.4" fill="#ff2d6f"></circle></g></g></svg></span><span data-dc-tpl="429" class="wch wch-err" aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden;"><svg data-dc-tpl="430" aria-hidden="true" width="120" height="30" viewBox="0 0 112 28" style="display: block; margin-left: -90px;"><defs data-dc-tpl="431"><circle data-dc-tpl="432" id="w12s" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="433" id="w12e" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z" fill="#021009"></path></defs><g data-dc-tpl="434" fill="none" stroke="#0affa0" stroke-width="1.15"><use data-dc-tpl="435" href="#w12s"></use><path data-dc-tpl="436" d="M6.5 14Q14 18.5 21.5 14"></path><use data-dc-tpl="437" href="#w12s" x="28"></use><use data-dc-tpl="438" href="#w12e" x="28"></use><circle data-dc-tpl="439" cx="42" cy="14" r="4"></circle><circle data-dc-tpl="440" cx="42" cy="14" r="1.8" fill="#effff6"></circle><use data-dc-tpl="441" href="#w12s" x="56"></use><path data-dc-tpl="442" d="M61.5 14Q70 8.5 78.5 14Q70 21 61.5 14z" fill="#021009"></path><circle data-dc-tpl="443" cx="73.2" cy="14.8" r="3.2"></circle><circle data-dc-tpl="444" cx="73.2" cy="14.8" r="1.5" fill="#effff6"></circle><g data-dc-tpl="445" stroke="#ff2d6f"><use data-dc-tpl="446" href="#w12s" x="84"></use><use data-dc-tpl="447" href="#w12e" x="84"></use><circle data-dc-tpl="448" cx="98" cy="14" r="2.4" fill="#ff2d6f"></circle></g></g></svg></span><div data-dc-tpl="449" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="450" class="is-editor-empty" data-placeholder="Ask for follow-up changes"><br data-dc-tpl="451"></p></div><div data-dc-tpl="452" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="453" style="position: relative; display: flex;"><button data-dc-tpl="454" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="455" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="456" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="457" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="458" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="459" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="460" style="flex: 1 1 0%;"></div><button data-dc-tpl="461" type="button" data-hook="button" aria-label="Send" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: rgb(10, 255, 160); cursor: pointer; box-shadow: rgba(10, 255, 160, 0.5) 0px 0px 16px;"><svg data-dc-tpl="462" class="lucide lucide-arrow-up" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00140a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="463" d="m5 12 7-7 7 7"></path><path data-dc-tpl="464" d="M12 19V5"></path></svg></button></div></div></form></div></div><div data-dc-tpl="465" style="width: 420px; padding-top: 18px;"><div data-dc-tpl="466" style="margin: 0px 0px 22px; padding: 8px 12px; border: 1px solid rgba(255, 45, 111, 0.4); border-radius: 8px; background: rgb(26, 3, 9); color: rgb(255, 194, 207); font: 12px / 1.4 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;">Request failed: the model returned 529 (overloaded).</div><form data-dc-tpl="467" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="468" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="469" class="wch  " aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden;"><svg data-dc-tpl="470" aria-hidden="true" width="120" height="30" viewBox="0 0 112 28" style="display: block; margin-left: 0px;"><defs data-dc-tpl="471"><circle data-dc-tpl="472" id="w13s" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="473" id="w13e" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z" fill="#021009"></path></defs><g data-dc-tpl="474" fill="none" stroke="#0affa0" stroke-width="1.15"><use data-dc-tpl="475" href="#w13s"></use><path data-dc-tpl="476" d="M6.5 14Q14 18.5 21.5 14"></path><use data-dc-tpl="477" href="#w13s" x="28"></use><use data-dc-tpl="478" href="#w13e" x="28"></use><circle data-dc-tpl="479" cx="42" cy="14" r="4"></circle><circle data-dc-tpl="480" cx="42" cy="14" r="1.8" fill="#effff6"></circle><use data-dc-tpl="481" href="#w13s" x="56"></use><path data-dc-tpl="482" d="M61.5 14Q70 8.5 78.5 14Q70 21 61.5 14z" fill="#021009"></path><circle data-dc-tpl="483" cx="73.2" cy="14.8" r="3.2"></circle><circle data-dc-tpl="484" cx="73.2" cy="14.8" r="1.5" fill="#effff6"></circle><g data-dc-tpl="485" stroke="#ff2d6f"><use data-dc-tpl="486" href="#w13s" x="84"></use><use data-dc-tpl="487" href="#w13e" x="84"></use><circle data-dc-tpl="488" cx="98" cy="14" r="2.4" fill="#ff2d6f"></circle></g></g></svg></span><span data-dc-tpl="489" class="wch wch-err" aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden;"><svg data-dc-tpl="490" aria-hidden="true" width="120" height="30" viewBox="0 0 112 28" style="display: block; margin-left: -90px;"><defs data-dc-tpl="491"><circle data-dc-tpl="492" id="w14s" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="493" id="w14e" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z" fill="#021009"></path></defs><g data-dc-tpl="494" fill="none" stroke="#0affa0" stroke-width="1.15"><use data-dc-tpl="495" href="#w14s"></use><path data-dc-tpl="496" d="M6.5 14Q14 18.5 21.5 14"></path><use data-dc-tpl="497" href="#w14s" x="28"></use><use data-dc-tpl="498" href="#w14e" x="28"></use><circle data-dc-tpl="499" cx="42" cy="14" r="4"></circle><circle data-dc-tpl="500" cx="42" cy="14" r="1.8" fill="#effff6"></circle><use data-dc-tpl="501" href="#w14s" x="56"></use><path data-dc-tpl="502" d="M61.5 14Q70 8.5 78.5 14Q70 21 61.5 14z" fill="#021009"></path><circle data-dc-tpl="503" cx="73.2" cy="14.8" r="3.2"></circle><circle data-dc-tpl="504" cx="73.2" cy="14.8" r="1.5" fill="#effff6"></circle><g data-dc-tpl="505" stroke="#ff2d6f"><use data-dc-tpl="506" href="#w14s" x="84"></use><use data-dc-tpl="507" href="#w14e" x="84"></use><circle data-dc-tpl="508" cx="98" cy="14" r="2.4" fill="#ff2d6f"></circle></g></g></svg></span><div data-dc-tpl="509" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="510" class="is-editor-empty" data-placeholder="Ask for follow-up changes"><br data-dc-tpl="511"></p></div><div data-dc-tpl="512" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="513" style="position: relative; display: flex;"><button data-dc-tpl="514" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="515" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="516" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="517" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="518" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="519" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="520" style="flex: 1 1 0%;"></div><button data-dc-tpl="521" type="button" data-hook="button" aria-label="Send" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: rgb(10, 255, 160); cursor: pointer; box-shadow: rgba(10, 255, 160, 0.5) 0px 0px 16px;"><svg data-dc-tpl="522" class="lucide lucide-arrow-up" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00140a" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="523" d="m5 12 7-7 7 7"></path><path data-dc-tpl="524" d="M12 19V5"></path></svg></button></div></div></form></div></div><div data-dc-tpl="525" style="display: grid; grid-template-columns: 190px 640px 420px; gap: 40px; align-items: start; padding: 22px 0px; border-top: 1px solid rgb(18, 53, 34);"><div data-dc-tpl="526" style="display: flex; flex-direction: column; gap: 8px; padding-top: 18px;"><div data-dc-tpl="527" style="font: 700 13px / 1.2 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(207, 248, 223); text-transform: uppercase; letter-spacing: 0.05em;">reduced motion · working</div><div data-dc-tpl="528" style="font: 12px / 1.4 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; color: rgb(136, 189, 158);">static pose</div></div><div data-dc-tpl="529" style="width: 640px; height: 196px; overflow: visible;"><div data-dc-tpl="530" style="width: 420px; transform: scale(1.5); transform-origin: 0px 0px; padding-top: 18px;"><form data-dc-tpl="531" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="532" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="533" class="wch wch-w still" aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden; transform: scale(1.1);"><svg data-dc-tpl="534" aria-hidden="true" width="30" height="30" viewBox="0 0 28 28" style="display: block;"><g data-dc-tpl="535" fill="#021009" stroke="#0affa0" stroke-width="1.15"><circle data-dc-tpl="536" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="537" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z"></path></g><g data-dc-tpl="538" fill="#effff6" font-size="9.5" font-weight="700" text-anchor="middle"><text data-dc-tpl="539" x="14" y="17.4">ア</text><text data-dc-tpl="540" x="14" y="17.4">7</text><text data-dc-tpl="541" x="14" y="17.4">ヌ</text></g></svg></span><div data-dc-tpl="542" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="543" class="is-editor-empty" data-placeholder="Ask for follow-up changes"><br data-dc-tpl="544"></p></div><div data-dc-tpl="545" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="546" style="position: relative; display: flex;"><button data-dc-tpl="547" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="548" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="549" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="550" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="551" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="552" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="553" style="flex: 1 1 0%;"></div><button data-dc-tpl="554" type="button" data-hook="button" aria-label="Stop" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid rgb(10, 255, 160); border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="555" class="lucide lucide-square" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0affa0" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><rect data-dc-tpl="556" width="12" height="12" x="6" y="6" rx="1.5"></rect></svg></button></div></div></form></div></div><div data-dc-tpl="557" style="width: 420px; padding-top: 18px;"><form data-dc-tpl="558" data-hook="composer-form" aria-label="Message composer" style="width: 100%; max-width: 760px; margin: 0px auto;"><div data-dc-tpl="559" data-hook="composer-card" style="padding: 12px 12px 10px 16px; background: rgb(3, 20, 10); border: 1px solid rgb(18, 53, 34); border-radius: 12px;"><span data-dc-tpl="560" class="wch wch-w still" aria-hidden="true" style="position: absolute; z-index: 3; left: 14px; top: -15px; width: 30px; height: 30px; pointer-events: none; overflow: hidden; transform: scale(1.1);"><svg data-dc-tpl="561" aria-hidden="true" width="30" height="30" viewBox="0 0 28 28" style="display: block;"><g data-dc-tpl="562" fill="#021009" stroke="#0affa0" stroke-width="1.15"><circle data-dc-tpl="563" cx="14" cy="14" r="12.5" fill="#010803"></circle><path data-dc-tpl="564" d="M5.5 14Q14 6 22.5 14Q14 22 5.5 14z"></path></g><g data-dc-tpl="565" fill="#effff6" font-size="9.5" font-weight="700" text-anchor="middle"><text data-dc-tpl="566" x="14" y="17.4">ア</text><text data-dc-tpl="567" x="14" y="17.4">7</text><text data-dc-tpl="568" x="14" y="17.4">ヌ</text></g></svg></span><div data-dc-tpl="569" data-hook="composer-input" role="textbox" aria-label="Message" style="min-height: 43px; margin: 0px 0px 8px; outline: none; color: rgb(207, 248, 223); font: 14.5px / 1.5 -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, system-ui, sans-serif;"><p data-dc-tpl="570" class="is-editor-empty" data-placeholder="Ask for follow-up changes"><br data-dc-tpl="571"></p></div><div data-dc-tpl="572" style="display: flex; align-items: center; gap: 4px;"><span data-dc-tpl="573" style="position: relative; display: flex;"><button data-dc-tpl="574" type="button" data-hook="button" aria-label="Attach files" style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 0px; border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="575" class="lucide lucide-paperclip" aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="576" d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg></button></span><button data-dc-tpl="577" type="button" data-hook="button" aria-haspopup="menu" style="display: flex; align-items: center; gap: 4px; height: 28px; padding: 0px 8px; border: 1px solid rgb(18, 53, 34); border-radius: 8px; background: transparent; color: rgb(136, 189, 158); font: 12.5px / 1 ui-monospace, &quot;SF Mono&quot;, Menlo, Consolas, monospace; cursor: pointer;">Opus 5.5<svg data-dc-tpl="578" class="lucide lucide-chev-down" aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#88bd9e" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><path data-dc-tpl="579" d="m6 9 6 6 6-6"></path></svg></button><div data-dc-tpl="580" style="flex: 1 1 0%;"></div><button data-dc-tpl="581" type="button" data-hook="button" aria-label="Stop" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 1px solid rgb(10, 255, 160); border-radius: 8px; background: transparent; cursor: pointer;"><svg data-dc-tpl="582" class="lucide lucide-square" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0affa0" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex: 0 0 auto; display: block;"><rect data-dc-tpl="583" width="12" height="12" x="6" y="6" rx="1.5"></rect></svg></button></div></div></form></div></div></div><div data-dc-tpl="584" data-hook="message-row" hidden=""></div></div></div></div>
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;motion&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;section&quot;: &quot;Theme&quot;}, &quot;rain&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;section&quot;: &quot;Theme&quot;}, &quot;$preview&quot;: {&quot;width&quot;: 1440, &quot;height&quot;: 1900}}">
+class Component extends DCLogic {
+renderVals() {
+const motion = this.props.motion ?? true;
+const rain = this.props.rain ?? true;
+return { rootCls: (motion ? '' : 'paused ') + (rain ? '' : 'norain') };
+}
+}
+</script>
+
+
+</body></html>

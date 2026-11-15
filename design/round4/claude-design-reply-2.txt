@@ -1,0 +1,107 @@
+Claude responded: Clear list.
+Adjusting the board's sizes and animation keyframes
+
+Adjusting the board's sizes and animation keyframes
+
+Clear list. One structural consequence of fix 3, which I’ll handle this way: anchoring the Watcher to the composer card means it needs one of the card’s own pseudo-elements. The card’s ::before is the ❯ prompt and its ::after is the block caret. So I’ll move both onto the editor element (@{composer-input}::before and ::after) and make the editor position: relative, with the same look. That frees the card’s ::before for the Watcher and its ::after for the error copy and ripple. I’ll also drop Possessed’s :nth-last-child stagger rules, since they can never match in a virtualised list.
+
+Ran 2 commands
+
+Ran 2 commands
+
+Whole theme is 18,706, which meets the 18,800 target, but round 4 is 4,051, 51 over. The blue pill can take the gradient’s default colours, which removes its own rule.
+
+Read 2 files, ran 2 commands
+
+Read A.png
+Read B.png
+Read 2 files, ran 2 commands
+
+Board B reads well at both sizes. Board A has a bug: the working eye in the concepts grid shows an empty almond, with no glyph. Checking why.
+
+Used Artifact, read 3 files, ran 12 commands
+
++1
+Read w-strip-view.png
+Read w-strip-rm-view.png
+Read w-strip-view.png
+Used Artifact, read 3 files, ran 12 commands
+
+T3 Code digital-rain theme
+Claude Design
+·Only you
+
+
+I sent the second batch with a guessed version id. The live version is my own publish from a moment ago, so I’m resending against it.
+
+Shared 2 files, read 3 files, and 18 more steps
+
+Shared 2 files, read 3 files, and 18 more steps
+
+all five fixes are in. i updated the existing boards and files in place, with no new pages. the kit is in possessed-theme.zip, and the built theme is possessed.css.
+
+1. watcher size and weight
+
+it’s now 30px, with strokes 15% heavier and a brighter seal ring. the disc is solid 
+#010803, so the card border never shows through it.
+working shows one bold glyph that fills the iris and cycles ア, 7, ヌ. the dashed ring and the scanning are gone.
+idle has no animation and no transform.
+done is now a transition rather than an animation. when working (1.1×) or typing (nudged 1px) stops matching, the eye steps back in 3 steps. it never plays on page load.
+
+2. bullet time
+while a reply streams, the near rain pauses and the far rain keeps falling, in both the conversation and the sidebar. three rings leave the watcher when streaming starts (0.8 s each), then stop.
+
+3. hooks
+
+new hooks: @{streaming} and @{working}.
+working: :root:has(@{streaming}, @{working}).
+déjà vu: @{message-row}:has(@{streaming}). in chrome it fires once on the row where streaming starts, doesn’t replay on text updates, never restarts that row’s boot flicker, and touches no other row.
+watcher position: the watcher is now the composer card’s ::before, with position: relative on the card and the pseudo at top: -15px; left: 14px. the error copy and the rings use the card’s ::after.
+moved prompt and caret: freeing those card pseudos meant moving the ❯ prompt and block caret onto the editor (@{composer-input}::before and ::after). the look is unchanged.
+removed: possessed’s :nth-last-child stagger rules. in a virtualised list every row is an only child, so they never matched.
+
+4. budget
+
+piece	chars
+watcher (1,085 rules + 1,482 svg)	2,567
+bullet time	389
+wake up	474
+déjà vu	171
+pills	377
+round 4 total	3,978
+possessed	14,655
+whole theme	18,633 / 20,000
+
+no state or touch was dropped. the savings came from:
+
+reusing one keyframe for both wake and blink
+turning done into a transition
+drawing the error eye as the focused frame in red
+dropping the scan and clip from the working svg
+giving the pills a single gradient whose blue is the default
+removing the dead stagger rules
+
+5. board b
+each state now shows the 1.5× composer next to a real-size composer with the 30px eye.
+
+the round-4 build check board has fresh chrome screenshots of every state at 4×, with and without reduced motion. i also regenerated the final · possessed boards so their composer matches the moved prompt and caret; they look the same.
+
+one assumption still to check in t3 code: [data-streaming="true"] has to sit inside the message row, not on the row element itself, because :has() only looks at descendants. my first mock had it on the row, and déjà vu silently didn’t fire.
+
+
+Possessed theme
+ZIP
+
+
+Possessed
+Code
+·CSS
+
+
+Download all
+
+
+
+
+
+6 minutes ago

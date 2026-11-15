@@ -1,0 +1,92 @@
+/* round 4: the watcher + matrix touches. appended after possessed.css by build.mjs.
+   sections marked with "== name ==" are counted separately by the build. */
+
+/*== watcher ==*/
+:root {
+  --w: url(watcher.svg);
+  --ww: url(watcher-work.svg);
+}
+/* the watcher is the composer card's ::before: a 30px seal on the card's top edge, left side.
+   the card's ::after is the error copy (and the bullet-time ring). */
+@{composer-card}::before, @{composer-card}::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  left: 14px;
+  top: -15px;
+  width: 30px;
+  height: 30px;
+  pointer-events: none;
+}
+/* idle: eye shut, completely still. the transition is the "done" settle: when working
+   (scale 1.1) or typing (nudged) stops matching, the eye steps back in 3 steps. */
+@{composer-card}::before {
+  background: var(--w) 0 0 / 120px 30px;
+  transition: transform .45s steps(3);
+}
+/* focused: the eye opens and looks at you, once */
+@{composer-card}:has(@{composer-input}:focus)::before {
+  background-position-x: -30px;
+  animation: wk .3s steps(3);
+}
+/* typing (editor not empty): lids narrow, it glances down at the text */
+@{composer-card}:not(:has(@{composer-empty}))::before {
+  background-position-x: -60px;
+  transform: translate(1px, 1px);
+}
+/* working or streaming: one bold glyph cycles in the iris (the only loop, inside the svg) */
+:root:has(@{streaming}, @{working}) @{composer-card}::before {
+  background: var(--ww) 0 0 / 30px !important;
+  transform: scale(1.1) !important;
+}
+/* error: a red copy on ::after jitters, holds, fades out; static red under reduced motion */
+:root:has(@{error-alert}) @{composer-card}::after {
+  background: var(--w) -90px 0 / 120px 30px;
+  border: 0;
+  opacity: 1;
+  animation: we .8s steps(1) forwards;
+}
+@keyframes wk { from { transform: scaleY(.25) } }
+@keyframes we { 0% { transform: translate(2px) } 20% { transform: translate(-2px) } 40% { transform: none } 70% { opacity: 1 } to { opacity: 0 } }
+
+/*== bullet time ==*/
+/* while a reply streams, the near rain pauses and the far rain keeps falling.
+   three rings leave the watcher when streaming starts, then stop. */
+:root:has(@{streaming}) :is(@{conversation}, @{sidebar})::before { animation-play-state: paused; }
+:root:has(@{streaming}) @{composer-card}::after {
+  border: 1px solid var(--g);
+  border-radius: 50%;
+  clip-path: inset(0 0 50%);
+  opacity: 0;
+  animation: rip .8s ease-out 3;
+}
+@keyframes rip { from { transform: scale(.8); opacity: .6 } to { transform: scale(2.2); opacity: 0 } }
+
+/*== wake up ==*/
+/* new thread (no messages yet): the placeholder types itself on, once */
+@{composer-empty-line} { position: relative; }
+:root:not(:has(@{message-row})) @{composer-empty-line}::before { content: "Wake up, Neo…"; }
+:root:not(:has(@{message-row})) @{composer-empty-line}::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #03170c;
+  transform-origin: right;
+  transform: scaleX(0);
+  animation: typeon 1.3s steps(13) .3s backwards;
+}
+
+/*== deja vu ==*/
+/* the row that starts streaming repeats itself for one beat, once */
+@{message-row}:has(@{streaming}) { animation: boot .55s steps(1) both, dv .12s .3s steps(1); }
+@keyframes dv { from { transform: translate(6px, -3px); opacity: .5 } }
+
+/*== pills ==*/
+/* red pill confirms the destructive action, blue pill keeps things as they are */
+@{dialog} :is(@{button-destructive}, @{button-cancel}) {
+  border: 0 !important;
+  border-radius: 99px !important;
+  color: #fff !important;
+  background: radial-gradient(12% 32% at 13% 32%, var(--a, #6aa0ff), var(--b, #1a4ac4)) !important;
+}
+@{dialog} @{button-destructive} { --a: #ff6a90; --b: #c4124b; }

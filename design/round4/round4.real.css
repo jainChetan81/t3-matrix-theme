@@ -1,0 +1,84 @@
+/* round 4 with T3 Code v0.1.10 selectors substituted. append after src/theme.css.
+   build.py must inline watcher.svg / watcher-work.svg as data: urls (same as rain/spinner).
+   UNVERIFIED hooks are marked; everything else was read from the running app. */
+
+/*== watcher ==*/
+:root { --w: url(watcher.svg); --ww: url(watcher-work.svg); }
+/* [data-chat-composer-surface] is static inside the relative [data-slot="composer-host"];
+   its ::before/::after are unused by the app (the host's own pseudos are taken). */
+[data-chat-composer-surface]::before, [data-chat-composer-surface]::after {
+  content: ""; position: absolute; z-index: 3; left: 14px; top: -15px;
+  width: 30px; height: 30px; pointer-events: none;
+}
+/* idle: shut, still. the transition is the "done" settle. */
+[data-chat-composer-surface]::before {
+  background: var(--w) 0 0 / 120px 30px;
+  transition: transform .45s steps(3);
+}
+/* focused: opens once, looks at you */
+[data-chat-composer-surface]:has(.composer-tiptap:focus)::before {
+  background-position-x: -30px;
+  animation: wk .3s steps(3);
+}
+/* typing: lids narrow, glance at the text */
+[data-chat-composer-surface]:not(:has(.composer-tiptap > p:only-child > br:only-child))::before {
+  background-position-x: -60px;
+  transform: translate(1px, 1px);
+}
+/* working / streaming: one bold glyph cycles in the iris (the only loop, inside the 30px svg) */
+:root:has([data-streaming="true"], [data-thread-now-line]) [data-chat-composer-surface]::before {
+  background: var(--ww) 0 0 / 30px !important;
+  transform: scale(1.1) !important;
+}
+/* error: red copy jitters, holds, fades. UNVERIFIED hook: find T3's destructive alert/toast selector. */
+:root:has([role="alert"]) [data-chat-composer-surface]::after {
+  background: var(--w) -90px 0 / 120px 30px;
+  border: 0; opacity: 1;
+  animation: we .8s steps(1) forwards;
+}
+@keyframes wk { from { transform: scaleY(.25) } }
+@keyframes we { 0% { transform: translate(2px) } 20% { transform: translate(-2px) } 40% { transform: none } 70% { opacity: 1 } to { opacity: 0 } }
+
+/*== bullet time ==*/
+/* near rain pauses, far rain keeps falling; three rings leave the watcher, then stop */
+:root:has([data-streaming="true"]) [data-workspace-area="conversation"]::before { animation-play-state: paused; }
+:root:has([data-streaming="true"]) [data-chat-composer-surface]::after {
+  border: 1px solid var(--g); border-radius: 50%;
+  clip-path: inset(0 0 50%); opacity: 0;
+  animation: rip .8s ease-out 3;
+}
+@keyframes rip { from { transform: scale(.8); opacity: .6 } to { transform: scale(2.2); opacity: 0 } }
+
+/*== wake up ==*/
+/* T3 draws the placeholder as a separate element (.pointer-events-none beside the editor),
+   not as the empty <p>'s ::before, so hide its text and type ours over it. draft only. */
+:root:not(:has([data-timeline-row-kind])) [data-chat-composer-form] :has(> * > .composer-tiptap) > .pointer-events-none { font-size: 0; }
+:root:not(:has([data-timeline-row-kind])) [data-chat-composer-form] :has(> * > .composer-tiptap) > .pointer-events-none::before {
+  content: "Wake up, Neo…";
+  font-size: .875rem;
+  display: inline-block;
+  clip-path: inset(0 100% 0 0);
+  animation: wu 1.3s steps(13) .3s forwards;
+}
+@keyframes wu { to { clip-path: inset(0) } }
+
+/*== deja vu ==*/
+/* the row whose markdown starts streaming repeats itself for one beat, once.
+   add dv to that row's existing animation list rather than replacing it. */
+[data-timeline-row-kind]:has([data-streaming="true"]) { animation: dv .12s .3s steps(1); }
+@keyframes dv { from { transform: translate(6px, -3px); opacity: .5 } }
+
+/*== pills ==*/
+/* UNVERIFIED hooks: destructive + cancel buttons inside the confirm dialog popup. */
+[data-slot="dialog-popup"] :is([data-slot="button"][data-variant="destructive"], [data-slot="dialog-close"]) {
+  border: 0 !important; border-radius: 99px !important; color: #fff !important;
+  background: radial-gradient(12% 32% at 13% 32%, var(--a, #6aa0ff), var(--b, #1a4ac4)) !important;
+}
+[data-slot="dialog-popup"] [data-slot="button"][data-variant="destructive"] { --a: #ff6a90; --b: #c4124b; }
+
+/* reduced motion: add these to the theme's scoped reduced-motion list */
+@media (prefers-reduced-motion: reduce) {
+  [data-chat-composer-surface]::before, [data-chat-composer-surface]::after,
+  [data-chat-composer-form] .pointer-events-none::before { animation: none !important; transition: none !important; clip-path: none !important; }
+  :root:has([data-streaming="true"]) [data-chat-composer-surface]::after { display: none; }
+}
