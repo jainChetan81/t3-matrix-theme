@@ -531,6 +531,8 @@ svg.lucide { stroke-width: 1.7; }
   [data-chat-composer-surface]::before,
   [data-chat-composer-surface]::after,
   [data-chat-composer-overlay],
+  [data-chat-composer-overlay] .text-placeholder,
+  [data-chat-composer-overlay] .text-placeholder::before,
   [data-sidebar-row],
   [data-sidebar-row]::after,
   [data-slot="tooltip-popup"]::after,

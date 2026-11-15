@@ -17,7 +17,7 @@ t3 theme set ./matrix.json            # VPS: t3 is on PATH
 
 ```sh
 python3 -I build.py
-# css 19842/20000 chars, file 22585/32768 bytes, svgs: eye, prompt, rain, spinner, watcher
+# css 19944/20000 chars, file 22687/32768 bytes, svgs: eye, prompt, rain, spinner, watcher
 ```
 
 `build.py` minifies `src/theme.css` (quoted strings are left untouched), inlines `src/*.svg` as `data:` URLs, adds the colour roles from `src/colors.json` and writes `matrix.json`. It fails the build if the theme breaks a T3 limit: CSS over 20,000 chars, file over 32 KB, a `url()` that is not `data:` or `#id`, `@import`, `image-set()`, `src()` or a backslash.
