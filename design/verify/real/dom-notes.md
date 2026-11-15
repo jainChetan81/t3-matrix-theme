@@ -37,7 +37,7 @@ popups after menu action: ["dialog:Claude Opus 5.5, ClaudeClaude Sonnet 5.5, Cla
 - Draft screen: the conversation area holds only `[data-timeline-loading="true"]` (opaque `bg-background`); the composer lives in a sibling overlay `[data-workspace-area=composer][data-chat-composer-overlay]` (`absolute inset-0 flex items-center` on a draft, `absolute inset-x-0 bottom-0` in a thread; `[data-timeline-loading]` is also up for 200 to 330 ms while a thread opens, so the theme keys the draft on `.items-center`). The composer is never inside `[data-workspace-area=conversation]`.
 - `[data-assistant-citation-viewport]` is the non-scrolling parent of `.messages-timeline-scroll` (relative, full conversation size, pseudos unused). It does not exist on a draft.
 - Row containers have `contain: content`, so nothing inside a row can paint outside it.
-- Virtualisation: with a 380 px viewport and a 1236 px timeline, scrolling end to end remounted no rows (draw distance is at least ~850 px). No thread long enough to force a remount exists in the test instance.
+- Virtualisation: with a 380 px viewport and a 1236 px timeline, scrolling end to end remounted no rows. Round 6 made a long thread (see below) and rows do remount.
 - Popups: `[data-slot=tooltip-popup|menu-popup|popover-popup|dialog-popup]`; Settings opens as a dialog. The model picker is a popover.
 
 ## Facts found while building the Watcher round (v0.1.10, real app)
@@ -50,3 +50,15 @@ popups after menu action: ["dialog:Claude Opus 5.5, ClaudeClaude Sonnet 5.5, Cla
 - Workspace children order: banner lane, `[data-workspace-area=conversation]`, `[data-workspace-area=composer]`, `[data-workspace-area=details]`.
 - A `prefers-reduced-motion` media query inside an SVG used as a CSS background did not stop the SVG's animation under CDP media emulation.
 - T3's theme loader accepts nested CSS rules as written.
+
+## Facts found in round 6 (v0.1.10, real app)
+
+- Pickers: typing `/`, `@` or `$` in the composer mounts `div[data-composer-drawer-layer="true"]` (`pointer-events-auto fixed z-40`, inline bottom/left/width) as a direct child of `body` (a React portal). Inside: `[data-composer-command-drawer]` > scroll area > `[role=listbox][data-slot=command-list]` with `aria-label` "Commands", "Files and folders" or "Skills". While it is open the editor has `aria-controls` and `aria-activedescendant`; both are removed when it closes (Escape, or plain text). The layer's left edge is 21 px right of the composer surface's, so it covers the right 23 px and the top half of the Watcher.
+- New-thread placeholder: emptying the editor replaces only the `.text-placeholder` node. Its parent and every ancestor up to `[data-chat-composer-overlay]` survive typing and clearing. The overlay's classes on a draft: `pointer-events-none absolute inset-0 z-20 flex items-center [@media(max-height:34rem)]:items-end`.
+- `[data-chat-composer-surface]` has a T3 transition: `background-color .2s cubic-bezier(.4, 0, .2, 1)`.
+- `[data-timeline-loading]` appears only the first time a thread is opened in a page session (180 to 260 ms), and then `[data-assistant-citation-viewport]` is a new node. Switching back to a thread already opened shows no loading node and keeps the viewport. So it cannot serve as a thread-open trigger.
+- A custom property set by a CSS animation cannot be used in `animation-name` of a descendant (it is animation-tainted; the `var()` falls back). One held by a delayed transition can.
+- `data-thread-item` on the sidebar `<li>` carries the same `<env>:<thread id>` value as `data-sidebar-row`. Thread ids in this instance are `mcp:<uuid v4>`.
+- Long thread ("probe2" after three ~900-word replies: 6,000 px timeline, 761 px viewport, 7 to 17 rows mounted at a time): rows remount while scrolling. A 4 s scroll from the bottom to the top mounted 33 rows (16 user, 14 assistant, 3 turn-fold; rows mount more than once), a 0.5 s scroll 12, a jump 6. With the .5 s mount flicker a flickering row was in view in 62 frames of the slow scroll up and 41 of the scroll down; with the .2 s flicker in 8 and 2.
+- A real one-word reply never showed `[data-streaming]` at a 250 ms sampling interval; the reply row mounted about 7 s after the send.
+- The T3 theme loader passes a nested `@starting-style` rule and `transition … allow-discrete` unchanged (applied sheet identical to a fresh parse of the built CSS, 114 top-level rules).
