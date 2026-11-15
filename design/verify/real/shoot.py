@@ -202,6 +202,10 @@ def do_action(p, action):
         time.sleep(0.8)
     elif action.startswith("wait:"):
         time.sleep(int(action[5:]) / 1000.0)
+    elif action.startswith("eval:"):
+        # run JS in the page, e.g. to hand-set a state attribute before a bench or a shot
+        p.js(action[5:])
+        time.sleep(0.4)
     elif action == "esc":
         for t in ("keyDown", "keyUp"):
             p.call("Input.dispatchKeyEvent", type=t, key="Escape", code="Escape", windowsVirtualKeyCode=27)
@@ -558,7 +562,7 @@ def main():
     sh = sub.add_parser("shot")
     sh.add_argument("name")
     sh.add_argument("--action", action="append", default=[],
-                    help="thread:<title>|draft|focus|type:<text>|menu|tooltip|dialog|terminal (repeatable)")
+                    help="thread:<title>|draft|focus|type:<text>|menu|tooltip|dialog|terminal|eval:<js> (repeatable)")
     sh.add_argument("--url", default=None)
     sh.add_argument("--width", type=int, default=None)
     sh.add_argument("--height", type=int, default=900)

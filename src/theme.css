@@ -1,7 +1,9 @@
 /* Matrix for T3 Code, "Possessed" build: sparse digital rain + a live phosphor terminal.
    build.py replaces each svg placeholder with that file from src/ as a data: URL.
-   Perf rules: loops are transforms on their own layers (rain x2, roll bar, sheen on running rows);
-   everything else is one-shot. No filters, no glow on text blocks, nothing animates inside the rain tile. */
+   Perf rules: loops are transforms on their own layers (rain x2, roll bar, sheen on running rows) plus
+   the glyph inside the 30 px Watcher while the agent works; everything else is one-shot. No filters,
+   no glow on text blocks, nothing animates inside the rain tile.
+   Rules are nested (CSS nesting) to stay inside the 20,000 character limit. */
 
 :root {
   --g: #0affa0;
@@ -10,17 +12,21 @@
   --line: #14291f;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --rain: url("{{svg:rain}}");
+  --w: url("{{svg:watcher}}");
   scrollbar-color: #1f6b4a transparent;
 }
 
 ::selection { background: var(--g); color: #00140a; }
 
 /* ---------- rain ---------- */
+/* The tile is 1600 x 1000 (64 x 40 cells): wider than the conversation and taller than most windows,
+   so the near layer does not repeat on screen; the far layer and the still field use other scales
+   and offsets, so their repeats never line up with it. */
 /* still field: the tile at 40% under a flat wash, painted once (conversation and sidebar) */
 [data-workspace-area="conversation"], [data-slot="sidebar-inner"] {
-  background: linear-gradient(#030a07d6, #030a07d6), var(--rain) 0 0 / 400px 260px, var(--bg) !important;
+  background: linear-gradient(#030a07d6, #030a07d6), var(--rain) -70px -130px / 640px 400px, var(--bg) !important;
 }
-[data-slot="sidebar-inner"] { background-position: 0 0, -150px -90px !important; border-right: 1px solid var(--line); font-family: var(--mono); }
+[data-slot="sidebar-inner"] { border-right: 1px solid var(--line); font-family: var(--mono); }
 [data-workspace-area="conversation"] {
   position: relative;
   isolation: isolate;
@@ -31,50 +37,49 @@
   --e: calc(var(--chat-content-max-width, 46rem) / 2 + 20px);
   /* how much rain survives under the column */
   --k: #0003;
+  /* two moving depths over the whole area; the mask (x only, so it rides the transform)
+     cuts them down under the reading column */
+  &::before, &::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    background: var(--rain);
+    will-change: transform;
+    transition: opacity .6s;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(var(--c) - var(--e) - 110px), var(--k) calc(var(--c) - var(--e)), var(--k) calc(var(--c) + var(--e)), #000 calc(var(--c) + var(--e) + 110px));
+  }
+  /* near: the tile at full size, 25px cells, one cell per step */
+  &::before {
+    top: -1000px;
+    z-index: -1;
+    background-position-x: -230px;
+    opacity: .5;
+    animation: rn 8s steps(40) infinite;
+  }
+  /* far: the tile at 56%, 14px cells, slower, behind near */
+  &::after {
+    top: -560px;
+    z-index: -2;
+    background-size: 896px 560px;
+    background-position-x: -410px;
+    opacity: .34;
+    animation: rf 18s steps(40) infinite;
+  }
+  /* new thread / loading (no timeline yet): fuller rain; the composer card is opaque and stays clear */
+  &:has(> [data-timeline-loading]) { --k: #0008; }
 }
-/* two moving depths over the whole area; the mask (x only, so it rides the transform)
-   cuts them down under the reading column */
-[data-workspace-area="conversation"]::before,
-[data-workspace-area="conversation"]::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  pointer-events: none;
-  background: var(--rain);
-  will-change: transform;
-  transition: opacity .6s;
-  -webkit-mask-image: linear-gradient(90deg, #000 calc(var(--c) - var(--e) - 110px), var(--k) calc(var(--c) - var(--e)), var(--k) calc(var(--c) + var(--e)), #000 calc(var(--c) + var(--e) + 110px));
-}
-/* near: 25px cells, one cell per step */
-[data-workspace-area="conversation"]::before {
-  top: -650px;
-  z-index: -1;
-  background-size: 1000px 650px;
-  background-position-x: -230px;
-  opacity: .5;
-  animation: rn 5.2s steps(26) infinite;
-}
-/* far: the tile at 60%, 15px cells, slower, behind near */
-[data-workspace-area="conversation"]::after {
-  top: -390px;
-  z-index: -2;
-  background-size: 600px 390px;
-  background-position-x: -90px;
-  opacity: .34;
-  animation: rf 11.7s steps(26) infinite;
-}
-@keyframes rn { to { transform: translateY(650px); } }
-@keyframes rf { to { transform: translateY(390px); } }
-
-/* new thread / loading (no timeline yet): fuller rain; the composer card is opaque and stays clear */
+@keyframes rn { to { transform: translateY(1000px); } }
+@keyframes rf { to { transform: translateY(560px); } }
 [data-timeline-loading] { background: none !important; }
-[data-workspace-area="conversation"]:has(> [data-timeline-loading]) { --k: #0008; }
 
 /* the rain backs off while you type: composer focused and not empty */
-:root:has(.composer-tiptap:focus):not(:has(.composer-tiptap > p:only-child > br:only-child)) [data-workspace-area="conversation"]::before { opacity: .17; }
-:root:has(.composer-tiptap:focus):not(:has(.composer-tiptap > p:only-child > br:only-child)) [data-workspace-area="conversation"]::after { opacity: .11; }
+:root:has(.composer-tiptap:focus):not(:has(.composer-tiptap > p:only-child > br:only-child)) [data-workspace-area="conversation"] {
+  &::before { opacity: .17; }
+  &::after { opacity: .11; }
+}
 
 /* a window with no room beside the column keeps only the still field (no loops) */
 @media (max-width: 62rem) {
@@ -85,22 +90,22 @@
 /* Nothing above the rows remounts on a thread switch, so the one-shots are keyed on the last
    character of the active thread id: a different thread gives a different animation-name,
    which restarts them. The keyframes read their start values from the element. */
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="0"]) { --n: k0; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="1"]) { --n: k1; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="2"]) { --n: k2; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="3"]) { --n: k3; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="4"]) { --n: k4; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="5"]) { --n: k5; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="6"]) { --n: k6; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="7"]) { --n: k7; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="8"]) { --n: k8; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="9"]) { --n: k9; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="a"]) { --n: ka; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="b"]) { --n: kb; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="c"]) { --n: kc; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="d"]) { --n: kd; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="e"]) { --n: ke; }
-[data-slot="sidebar-wrapper"]:has([aria-current][data-sidebar-row$="f"]) { --n: kf; }
+html:has([aria-current][data-sidebar-row$="0"]) { --n: k0; }
+html:has([aria-current][data-sidebar-row$="1"]) { --n: k1; }
+html:has([aria-current][data-sidebar-row$="2"]) { --n: k2; }
+html:has([aria-current][data-sidebar-row$="3"]) { --n: k3; }
+html:has([aria-current][data-sidebar-row$="4"]) { --n: k4; }
+html:has([aria-current][data-sidebar-row$="5"]) { --n: k5; }
+html:has([aria-current][data-sidebar-row$="6"]) { --n: k6; }
+html:has([aria-current][data-sidebar-row$="7"]) { --n: k7; }
+html:has([aria-current][data-sidebar-row$="8"]) { --n: k8; }
+html:has([aria-current][data-sidebar-row$="9"]) { --n: k9; }
+html:has([aria-current][data-sidebar-row$="a"]) { --n: ka; }
+html:has([aria-current][data-sidebar-row$="b"]) { --n: kb; }
+html:has([aria-current][data-sidebar-row$="c"]) { --n: kc; }
+html:has([aria-current][data-sidebar-row$="d"]) { --n: kd; }
+html:has([aria-current][data-sidebar-row$="e"]) { --n: ke; }
+html:has([aria-current][data-sidebar-row$="f"]) { --n: kf; }
 @keyframes k0 { 0% { transform: var(--a); opacity: var(--b); } }
 @keyframes k1 { 0% { transform: var(--a); opacity: var(--b); } }
 @keyframes k2 { 0% { transform: var(--a); opacity: var(--b); } }
@@ -181,55 +186,61 @@
   box-shadow: -14px 0 #030a07d9, 14px 0 #030a07d9;
 }
 .chat-content-lane { overflow-clip-margin: 16px; }
-[data-message-role="assistant"] .chat-markdown { position: relative; line-height: 1.65; color: #c9e2d4; }
-[data-message-role="assistant"] .chat-markdown :is(strong, b) { color: var(--hi); font-weight: 600; }
-[data-message-role="assistant"] .chat-markdown :is(h1, h2, h3, h4) { color: var(--hi); font-weight: 600; letter-spacing: .01em; }
-[data-message-role="assistant"] .chat-markdown :is(h1, h2, h3)::before { content: "# "; color: var(--g); font-family: var(--mono); }
-[data-message-role="assistant"] .chat-markdown :not(pre) > code {
-  color: #b4f5d4;
-  background: #0affa017;
-  border: 1px solid #0affa026;
-  border-radius: 4px;
-  padding: .08em .35em;
-  font-size: .88em;
-}
-[data-message-role="assistant"] .chat-markdown a { color: #5fe3b0; text-decoration: underline 1px #0affa059; text-underline-offset: 3px; }
-[data-message-role="assistant"] .chat-markdown a:hover { color: var(--g); text-decoration-color: var(--g); }
-[data-message-role="assistant"] .chat-markdown li::marker { color: #0affa0b3; }
-[data-message-role="assistant"] .chat-markdown blockquote {
-  border-left: 2px solid #0affa066;
-  background: #0affa00a;
-  color: #a9c8b7;
-  border-radius: 0 6px 6px 0;
-  padding: .4em 1em;
-}
-[data-message-role="assistant"] .chat-markdown hr { border: 0; border-top: 1px solid var(--line); }
-[data-message-role="assistant"] .chat-markdown th { color: var(--hi); background: #061810; }
-[data-message-role="assistant"] .chat-markdown :is(th, td) { border-color: var(--line); }
+[data-message-role="assistant"] .chat-markdown {
+  position: relative;
+  line-height: 1.65;
+  color: #c9e2d4;
+  :is(strong, b) { color: var(--hi); font-weight: 600; }
+  :is(h1, h2, h3, h4) { color: var(--hi); font-weight: 600; letter-spacing: .01em; }
+  :is(h1, h2, h3)::before { content: "# "; color: var(--g); font-family: var(--mono); }
+  :not(pre) > code {
+    color: #b4f5d4;
+    background: #0affa017;
+    border: 1px solid #0affa026;
+    border-radius: 4px;
+    padding: .08em .35em;
+    font-size: .88em;
+  }
+  a { color: #5fe3b0; text-decoration: underline 1px #0affa059; text-underline-offset: 3px; }
+  a:hover { color: var(--g); text-decoration-color: var(--g); }
+  li::marker { color: #0affa0b3; }
+  blockquote {
+    border-left: 2px solid #0affa066;
+    background: #0affa00a;
+    color: #a9c8b7;
+    border-radius: 0 6px 6px 0;
+    padding: .4em 1em;
+  }
+  hr { border: 0; border-top: 1px solid var(--line); }
+  th { color: var(--hi); background: #061810; }
+  :is(th, td) { border-color: var(--line); }
 
-/* new reply: it decodes out of the rain when streaming starts (bright glyphs on a dark plate step
-   away and uncover the text), and a scan line wipes the whole message when streaming ends.
-   The wipe is a transition, so it never plays on mount. */
-[data-message-role="assistant"] .chat-markdown::before,
-[data-message-role="assistant"] .chat-markdown::after {
-  content: "";
-  position: absolute;
-  inset: 0 -14px;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0;
-}
-[data-message-role="assistant"] .chat-markdown[data-streaming]::before {
-  background: var(--rain) -60px -40px / 800px 520px, var(--bg);
-  animation: dc .8s steps(1) 1;
+  /* new reply: it decodes out of the rain when streaming starts (bright glyphs on a dark plate step
+     away and uncover the text), and a scan line wipes the whole message when streaming ends.
+     The wipe is a transition, so it never plays on mount. */
+  &::before, &::after {
+    content: "";
+    position: absolute;
+    inset: 0 -14px;
+    z-index: 1;
+    pointer-events: none;
+    opacity: 0;
+  }
+  &[data-streaming]::before {
+    background: var(--rain) -60px -40px / 1280px 800px, var(--bg);
+    animation: dc .8s steps(1) 1;
+  }
+  &::after {
+    background: linear-gradient(transparent 70%, #0affa01f calc(100% - 2px), #7dffc8 0);
+    transform-origin: top;
+    transition: transform .65s ease-out, opacity .65s ease-in;
+  }
+  &[data-streaming]::after { transform: scaleY(0); opacity: 1; transition: none; }
 }
 @keyframes dc { 0% { opacity: 1; } 22% { opacity: .55; } 38% { opacity: .85; } 55% { opacity: .4; } 72% { opacity: .6; } 86% { opacity: .2; } }
-[data-message-role="assistant"] .chat-markdown::after {
-  background: linear-gradient(transparent 70%, #0affa01f calc(100% - 2px), #7dffc8 0);
-  transform-origin: top;
-  transition: transform .65s ease-out, opacity .65s ease-in;
-}
-[data-message-role="assistant"] .chat-markdown[data-streaming]::after { transform: scaleY(0); opacity: 1; transition: none; }
+/* deja vu: the row whose reply starts streaming repeats itself for one 120 ms beat */
+[data-timeline-row-kind]:has([data-streaming]) { animation: boot .5s steps(1) backwards, dv .12s steps(1) .3s; }
+@keyframes dv { 0% { transform: translate(6px, -3px); opacity: .5; } }
 
 /* work log: green hairlines, mono */
 [data-timeline-row-kind]:not([data-message-role]) { font-family: var(--mono); }
@@ -264,40 +275,101 @@
   --chat-composer-outline: #0affa0b3;
   box-shadow: 0 0 26px #0affa02e, inset 0 0 18px #0affa012, 0 8px 24px #0008;
 }
-[data-chat-composer-surface] { background: none !important; }
 .composer-tiptap { caret-color: var(--g); font-family: var(--mono); }
 /* the editor and its placeholder share a grandparent: the prompt sits on it and both shift right */
-[data-chat-composer-form] :has(> * > .composer-tiptap) { padding-left: 1.5em; }
-[data-chat-composer-form] :has(> * > .composer-tiptap) > .pointer-events-none { padding-left: 2.5em; font-family: var(--mono); }
-[data-chat-composer-form] :has(> * > .composer-tiptap)::before {
-  /* drawn, not typed: a "❯" glyph is missing from some system fonts */
-  content: "";
-  position: absolute;
-  left: 0;
-  top: .2em;
-  width: .8em;
-  height: 1.15em;
-  background: url("{{svg:prompt}}") center / contain no-repeat;
+[data-chat-composer-form] :has(> * > .composer-tiptap) {
+  padding-left: 1.5em;
+  > .text-placeholder { padding-left: 2.5em; font-family: var(--mono); }
+  &::before {
+    /* drawn, not typed: a "❯" glyph is missing from some system fonts */
+    content: "";
+    position: absolute;
+    left: 0;
+    top: .2em;
+    width: .8em;
+    height: 1.15em;
+    background: url("{{svg:prompt}}") center / contain no-repeat;
+  }
+  /* empty editor: a block caret instead of the bar */
+  &:has(p:only-child > br:only-child)::after {
+    content: "";
+    position: absolute;
+    left: 1.5em;
+    top: .2em;
+    width: .55em;
+    height: 1.15em;
+    background: var(--g);
+    opacity: .45;
+  }
+  /* on focus it blinks ten times (11 s), then stays lit */
+  &:has(:focus > p:only-child > br:only-child)::after {
+    opacity: 1;
+    box-shadow: 0 0 8px #0affa099;
+    animation: bl 1.1s steps(1) 10;
+  }
 }
-/* empty editor: a block caret instead of the bar */
 .composer-tiptap:has(> p:only-child > br:only-child) { caret-color: transparent; }
-[data-chat-composer-form] :has(> * > .composer-tiptap > p:only-child > br:only-child)::after {
-  content: "";
-  position: absolute;
-  left: 1.5em;
-  top: .2em;
-  width: .55em;
-  height: 1.15em;
-  background: var(--g);
-  opacity: .45;
-}
-/* on focus it blinks ten times (11 s), then stays lit */
-[data-chat-composer-form] :has(> * > .composer-tiptap:focus > p:only-child > br:only-child)::after {
-  opacity: 1;
-  box-shadow: 0 0 8px #0affa099;
-  animation: bl 1.1s steps(1) 10;
-}
 @keyframes bl { 50% { opacity: 0; } }
+
+/* ---------- the Watcher: a 30 px Sentinel eye on the composer's top edge ---------- */
+/* The surface is static inside the card, and its pseudos are free: ::before is the eye,
+   ::after the red error copy and the bullet-time rings. One sprite strip of five 30 px poses:
+   shut, open, narrowed, red, and a still working pose for reduced motion. */
+[data-chat-composer-surface] {
+  background: none !important;
+  &::before, &::after {
+    content: "";
+    position: absolute;
+    z-index: 3;
+    left: 14px;
+    top: -15px;
+    width: 30px;
+    height: 30px;
+    pointer-events: none;
+  }
+  /* idle: shut, still. The transition is the "done" step back to rest. */
+  &::before { background: var(--w); transition: transform .45s steps(3); }
+  /* composer focused: opens once, looks at you */
+  &:has(.composer-tiptap:focus)::before { background-position-x: -30px; animation: wk .3s steps(3); }
+  /* text in the composer: lids narrow, it glances at the text */
+  &:not(:has(.composer-tiptap > p:only-child > br:only-child))::before { background-position-x: -60px; transform: translate(1px, 1px); }
+  /* agent working (the send button is the stop button): a glyph cycles in the iris, the one new loop */
+  &:has([aria-label="Stop generation"])::before { background: url("{{svg:eye}}") !important; transform: scale(1.15) !important; }
+}
+@keyframes wk { 0% { transform: scaleY(.25); } }
+/* bullet time: while a reply streams the near rain holds still (far keeps falling)
+   and three rings leave the Watcher */
+html:has([data-streaming]) {
+  [data-workspace-area="conversation"]::before { animation-play-state: paused; }
+  [data-chat-composer-surface]::after {
+    border: 1px solid var(--g);
+    border-radius: 50%;
+    clip-path: inset(0 0 50%);
+    opacity: 0;
+    animation: rip .7s ease-out 3;
+  }
+}
+@keyframes rip { 0% { transform: scale(.8); opacity: .7; } to { transform: scale(2.4); } }
+/* error (the thread's error banner is up): the red eye jitters once, then fades */
+html:has(.chat-banner-lane [data-variant="error"]) [data-chat-composer-surface]::after {
+  background: var(--w) -90px 0;
+  animation: we 1.2s steps(1) forwards;
+}
+@keyframes we { 0%, 30% { transform: translate(2px); } 15% { transform: translate(-2px, 1px); } 45% { transform: none; } 60% { opacity: 1; animation-timing-function: linear; } to { opacity: 0; } }
+
+/* "Wake up, Neo...": typed once over the new-thread placeholder, then the real hint comes back */
+[data-workspace-area="conversation"]:has(> [data-timeline-loading]) ~ * .text-placeholder {
+  animation: wh 3.6s steps(13) .4s backwards;
+  &::before {
+    content: "Wake up, Neo…";
+    position: absolute;
+    color: var(--g);
+    opacity: 0;
+    animation: wu 3.6s steps(13) .4s;
+  }
+}
+@keyframes wh { 0%, 90% { color: #0000; } }
+@keyframes wu { 0% { clip-path: inset(0 100% 0 0); opacity: 1; } 36%, 90% { clip-path: inset(0); opacity: 1; } }
 
 /* ---------- sidebar ---------- */
 [data-sidebar-row] { background-color: #030a07b3; transition: background-color .9s; }
@@ -368,13 +440,21 @@ svg.lucide { stroke-width: 1.7; }
   animation: flick .25s steps(1) 1;
 }
 @keyframes flick { 0% { opacity: 0; } 30% { opacity: 1; } 50% { opacity: .3; } 70% { opacity: 1; } }
-[data-slot="dialog-popup"] {
+[data-slot$="dialog-popup"] {
   background: #040f0a !important;
   border-radius: 14px;
   box-shadow: 0 0 0 1px #0affa061, 0 0 40px #0affa029, 0 24px 64px #000c !important;
   animation: pwr .32s cubic-bezier(.2, .8, .2, 1) 1;
 }
 @keyframes pwr { 0% { scale: 1.04 .02; opacity: .3; } }
+/* confirm dialogs: blue pill keeps things as they are, red pill goes through */
+[data-slot="alert-dialog-footer"] > * {
+  border: 0 !important;
+  border-radius: 99px !important;
+  color: #fff !important;
+  background: radial-gradient(12% 32% at 13% 32%, var(--a, #6aa0ff), var(--b, #1a4ac4)) !important;
+}
+[data-slot="alert-dialog-footer"] > [data-slot="button"] { --a: #ff6a90; --b: #c4124b; }
 
 /* ---------- controls ---------- */
 :is([data-slot="input"], [data-slot="select-trigger"]):focus-visible {
@@ -398,11 +478,21 @@ svg.lucide { stroke-width: 1.7; }
   .chat-markdown::before,
   .chat-markdown::after,
   [data-chat-composer-form] :has(> * > .composer-tiptap)::after,
+  [data-chat-composer-surface]::before,
+  [data-chat-composer-surface]::after,
+  .text-placeholder,
+  .text-placeholder::before,
   [data-sidebar-row],
   [data-sidebar-row]::after,
   [data-slot="tooltip-popup"]::after,
   [data-slot="menu-popup"],
   [data-slot="popover-popup"],
-  [data-slot="dialog-popup"] { animation: none !important; transition: none !important; }
+  [data-slot$="dialog-popup"] { animation: none !important; transition: none !important; }
   [class*="lucide-loader"], [data-sidebar-row] .lucide-circle-dashed { background: none; stroke: currentColor !important; }
+  /* the Watcher's working pose without the cycling glyph (a media query inside the svg image is not
+     reliable), and no red copy over it */
+  [data-chat-composer-surface]:has([aria-label="Stop generation"]) {
+    &::before { background: var(--w) -120px 0 !important; }
+    &::after { display: none; }
+  }
 }

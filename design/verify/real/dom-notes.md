@@ -39,3 +39,14 @@ popups after menu action: ["dialog:Claude Opus 5.5, ClaudeClaude Sonnet 5.5, Cla
 - Row containers have `contain: content`, so nothing inside a row can paint outside it.
 - Virtualisation: with a 380 px viewport and a 1236 px timeline, scrolling end to end remounted no rows (draw distance is at least ~850 px). No thread long enough to force a remount exists in the test instance.
 - Popups: `[data-slot=tooltip-popup|menu-popup|popover-popup|dialog-popup]`; Settings opens as a dialog. The model picker is a popover.
+
+## Facts found while building the Watcher round (v0.1.10, real app)
+
+- Composer nesting: `[data-slot=composer-shell]` (::before used) > `[data-slot=composer-host]` (relative, ::after used, `aria-busy` stays "false" during a run) > div > `form[data-chat-composer-form]` > div > `[data-chat-composer-main-surface]` (relative, ::after used) > `[data-chat-composer-surface]` (static, overflow visible, both pseudos free). No ancestor clips.
+- While a turn runs the submit button's `aria-label` changes from "Submit message" to "Stop generation" (same position, inside the surface) for the whole turn: seen from +1.6 s to the end in a real send. In the same run: `[data-timeline-row-kind=working]` and `=thinking` rows, the active sidebar row's label gains ", Working," about .2 s later, `[data-streaming]` (bare attribute) only while text streams (about 3 s for eight paragraphs). `[data-thread-now-line]` never appeared.
+- Failed turn: an error banner `div.chat-banner-lane > div > [data-slot=alert][data-variant=error][role=alert]` over the thread (sibling of the conversation area, dismissable, still there when the thread is reopened), a `[data-timeline-row-kind=work]` row "Provider error", and the sidebar label ", Failed," until the thread is opened. `[role=alert]` is also used by settings forms and file viewers; `data-variant=error` alerts also appear inside settings and pairing dialogs (not in the banner lane).
+- Confirm dialog (sidebar row context menu > Delete): `[data-slot=alert-dialog-popup][role=alertdialog]` > `alert-dialog-header` (title, description) + `[data-slot=alert-dialog-footer]` > `button[data-slot=alert-dialog-close]` "Cancel" + `button[data-slot=button]` "Confirm". No `data-variant` on either button. Escape cancels.
+- Placeholder: `div.pointer-events-none.absolute.inset-0.text-placeholder` beside the editor, text "Ask anything. @ files, $ skills, / commands" on threads and drafts. Removed from the DOM while the editor has text; a new node is mounted when it is emptied.
+- Workspace children order: banner lane, `[data-workspace-area=conversation]`, `[data-workspace-area=composer]`, `[data-workspace-area=details]`.
+- A `prefers-reduced-motion` media query inside an SVG used as a CSS background did not stop the SVG's animation under CDP media emulation.
+- T3's theme loader accepts nested CSS rules as written.
