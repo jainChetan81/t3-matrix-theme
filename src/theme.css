@@ -68,8 +68,9 @@
     opacity: .34;
     animation: rf 18s steps(40) infinite;
   }
-  /* new thread / loading (no timeline yet): fuller rain; the composer card is opaque and stays clear */
-  &:has(> [data-timeline-loading]) { --k: #0008; }
+  /* new thread (the composer overlay is centred): fuller rain; the composer card is opaque and stays
+     clear. Not keyed on [data-timeline-loading] alone, which is also up briefly while a thread opens. */
+  &:has(~ [data-chat-composer-overlay].items-center) { --k: #0008; }
 }
 @keyframes rn { to { transform: translateY(1000px); } }
 @keyframes rf { to { transform: translateY(560px); } }
@@ -316,7 +317,6 @@ html:has([aria-current][data-sidebar-row$="f"]) { --n: kf; }
    ::after the red error copy and the bullet-time rings. One sprite strip of five 30 px poses:
    shut, open, narrowed, red, and a still working pose for reduced motion. */
 [data-chat-composer-surface] {
-  background: none !important;
   &::before, &::after {
     content: "";
     position: absolute;
@@ -333,8 +333,9 @@ html:has([aria-current][data-sidebar-row$="f"]) { --n: kf; }
   &:has(.composer-tiptap:focus)::before { background-position-x: -30px; animation: wk .3s steps(3); }
   /* text in the composer: lids narrow, it glances at the text */
   &:not(:has(.composer-tiptap > p:only-child > br:only-child))::before { background-position-x: -60px; transform: translate(1px, 1px); }
-  /* agent working (the send button is the stop button): a glyph cycles in the iris, the one new loop */
-  &:has([aria-label="Stop generation"])::before { background: url("{{svg:eye}}") !important; transform: scale(1.15) !important; }
+  /* agent working: the send button is "Stop generation", "Queue message" / "Steer message" once you type
+     during the turn, and "Stopping" after stop. A glyph cycles in the iris, the one new loop */
+  &:has([aria-label="Stop generation"], [aria-label="Stopping"], [aria-label="Queue message"], [aria-label="Steer message"])::before { background: url("{{svg:eye}}") !important; transform: scale(1.15) !important; }
 }
 @keyframes wk { 0% { transform: scaleY(.25); } }
 /* bullet time: while a reply streams the near rain holds still (far keeps falling)
@@ -357,8 +358,9 @@ html:has(.chat-banner-lane [data-variant="error"]) [data-chat-composer-surface]:
 }
 @keyframes we { 0%, 30% { transform: translate(2px); } 15% { transform: translate(-2px, 1px); } 45% { transform: none; } 60% { opacity: 1; animation-timing-function: linear; } to { opacity: 0; } }
 
-/* "Wake up, Neo...": typed once over the new-thread placeholder, then the real hint comes back */
-[data-workspace-area="conversation"]:has(> [data-timeline-loading]) ~ * .text-placeholder {
+/* "Wake up, Neo...": typed once over the new-thread placeholder, then the real hint comes back.
+   Keyed on the draft layout (centred overlay): a thread that is still loading has the overlay at the bottom. */
+[data-workspace-area="conversation"]:has(> [data-timeline-loading]) ~ [data-chat-composer-overlay].items-center .text-placeholder {
   animation: wh 3.6s steps(13) .4s backwards;
   &::before {
     content: "Wake up, Neo…";
@@ -380,8 +382,8 @@ html:has(.chat-banner-lane [data-variant="error"]) [data-chat-composer-surface]:
   color: var(--hi);
   animation: flick .25s steps(1) 1;
 }
-/* running threads: a slow decoding sheen, only while the row says "Working" */
-[data-sidebar-row][aria-label*=", Working,"]::after {
+/* running threads: a slow decoding sheen, only while the row's status is one of the running labels */
+[data-sidebar-row]:is([aria-label*=", Working,"], [aria-label*=", Goal,"], [aria-label*=", Setting up,"])::after {
   content: "";
   position: absolute;
   top: 0;
@@ -488,10 +490,10 @@ svg.lucide { stroke-width: 1.7; }
   [data-slot="menu-popup"],
   [data-slot="popover-popup"],
   [data-slot$="dialog-popup"] { animation: none !important; transition: none !important; }
-  [class*="lucide-loader"], [data-sidebar-row] .lucide-circle-dashed { background: none; stroke: currentColor !important; }
+  :is([class*="lucide-loader"], [data-sidebar-row] .lucide-circle-dashed) { background: none; stroke: currentColor !important; }
   /* the Watcher's working pose without the cycling glyph (a media query inside the svg image is not
      reliable), and no red copy over it */
-  [data-chat-composer-surface]:has([aria-label="Stop generation"]) {
+  [data-chat-composer-surface]:has([aria-label="Stop generation"], [aria-label="Stopping"], [aria-label="Queue message"], [aria-label="Steer message"]) {
     &::before { background: var(--w) -120px 0 !important; }
     &::after { display: none; }
   }
