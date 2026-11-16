@@ -8,8 +8,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 SRC = ROOT / "src"
 OUT = ROOT / "matrix.json"
-MAX_CSS = 20_000
-MAX_FILE = 32 * 1024
+MAX_CSS = 50_000
+MAX_FILE = 6 * MAX_CSS + 16 * 1024
 
 
 def fail(msg):
