@@ -1,9 +1,9 @@
-/* Matrix for T3 Code, "Possessed" build: sparse digital rain + a live phosphor terminal.
+/* Matrix for T3 Code, "Possessed" build: page-style digital rain + a live phosphor terminal.
    build.py replaces each svg placeholder with that file from src/ as a data: URL.
-   Perf rules: loops are transforms on their own layers (rain x2, roll bar, sheen on running rows) plus
+   Perf rules: loops are transforms on their own layers (rain, roll bar, sheen on running rows) plus
    the glyph inside the 30 px Watcher while the agent works; everything else is one-shot. No filters,
-   no glow on text blocks, nothing animates inside the rain tile.
-   Rules are nested (CSS nesting) to stay inside the 20,000 character limit. */
+   no glow on text blocks, nothing animates inside the rain images.
+   Rules are nested (CSS nesting) to keep the theme well inside the 50,000 character limit. */
 
 :root {
   --g: #0affa0;
@@ -12,6 +12,8 @@
   --line: #14291f;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --rain: url("{{svg:rain}}");
+  --field: url("{{svg:rain-field}}");
+  --loop: url("{{svg:rain-loop}}");
   --w: url("{{svg:watcher}}");
   scrollbar-color: #1f6b4a transparent;
 }
@@ -19,74 +21,56 @@
 ::selection { background: var(--g); color: #00140a; }
 
 /* ---------- rain ---------- */
-/* The tile is 1600 x 1000 (64 x 40 cells): taller than most windows. The far layer and the still
-   field use other scales and offsets, so their repeats never line up with the near layer. */
-/* still field: the tile at 40% under a flat wash, painted once (conversation and sidebar) */
+/* Fixed glyphs (rain-field) under a black overlay; its mask (rain-loop) has two windows per column, each
+   a trail fading to a clear head cell. The overlay moves down one cell per step, so only heads move. */
 [data-workspace-area="conversation"], [data-slot="sidebar-inner"] {
-  background: linear-gradient(#030a07d6, #030a07d6), var(--rain) -70px -130px / 640px 400px, var(--bg) !important;
+  background: linear-gradient(#030a07d6, #030a07d6), var(--field), var(--bg) !important;
 }
 [data-slot="sidebar-inner"] { border-right: 1px solid var(--line); font-family: var(--mono); }
 [data-workspace-area="conversation"] {
   position: relative;
   isolation: isolate;
   overflow: clip;
-  /* centre of the reading column (T3 sets the lane insets inline when a panel overlaps the chat) */
+  /* centre and half-width of the reading column (T3 sets the lane insets when a panel overlaps) */
   --c: calc(50% + (var(--chat-lane-inset-start, 0px) - var(--chat-lane-inset-end, 0px)) / 2);
-  /* half the column plus a gutter; follows the chat-width setting */
   --e: calc(var(--chat-content-max-width, 46rem) / 2 + 20px);
-  /* how much rain survives under the column */
-  --k: #0003;
-  /* two moving depths over the whole area; the mask (x only, so it rides the transform)
-     cuts them down under the reading column */
+  --dim: #030a07cc;
+  background: linear-gradient(90deg, #0000 calc(var(--c) - var(--e) - 110px), var(--dim) calc(var(--c) - var(--e)) calc(var(--c) + var(--e)), #0000 calc(var(--c) + var(--e) + 110px)), var(--field), var(--bg) !important;
   &::before, &::after {
     content: "";
     position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
     pointer-events: none;
-    background: var(--rain);
-    /* no will-change: the running transform animation already gives each its own layer, and
-       the hint cost about 8 frames/s under load in software compositing */
-    transition: opacity .6s;
-    -webkit-mask-image: linear-gradient(90deg, #000 calc(var(--c) - var(--e) - 110px), var(--k) calc(var(--c) - var(--e)), var(--k) calc(var(--c) + var(--e)), #000 calc(var(--c) + var(--e) + 110px));
   }
-  /* near: the tile at full size, 25px cells, one cell per step. Three copies side by side, each
-     shifted down by a different number of cells, so a wide window never shows the same glyphs
-     at the same height twice */
-  &::before {
-    top: -1000px;
-    z-index: -1;
-    background: var(--rain) -230px 0 repeat-y, var(--rain) 1370px 425px repeat-y, var(--rain) 2970px 700px repeat-y;
-    opacity: .5;
-    animation: rn 8s steps(40) infinite;
-  }
-  /* far: the tile at 56%, 14px cells, slower, behind near */
+  /* the overlay: one mask layer only (a mask composite repaints on every step) */
   &::after {
-    top: -560px;
+    inset: -3200px 0 0;
     z-index: -2;
-    background-size: 896px 560px;
-    background-position-x: -410px;
-    opacity: .34;
-    animation: rf 18s steps(40) infinite;
+    background: var(--bg);
+    mask: var(--loop) 0 0 / 1450px 3200px;
+    animation: rain 7.62s steps(128) infinite;
   }
-  /* new thread (the composer overlay is centred): fuller rain; the composer card is opaque and stays
-     clear. Not keyed on [data-timeline-loading] alone, which is also up briefly while a thread opens. */
-  &:has(~ [data-chat-composer-overlay].items-center) { --k: #0008; }
+  /* intro: a curtain over the streams slides off downwards at the rain's speed */
+  &::before {
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(#0000, var(--bg) 500px);
+    animation: rain-in 4.76s steps(80) forwards;
+  }
+  &:has(~ [data-chat-composer-overlay].items-center) { --dim: #030a0766; }
 }
-@keyframes rn { to { transform: translateY(1000px); } }
-@keyframes rf { to { transform: translateY(560px); } }
+@keyframes rain { to { transform: translateY(3200px); } }
+@keyframes rain-in { to { transform: translateY(2000px); } }
 [data-timeline-loading] { background: none !important; }
-
-/* the rain backs off while you type: composer focused and not empty */
+/* typing (composer focused and not empty) dims the rain under the column further */
 :root:has(.composer-tiptap:focus):not(:has(.composer-tiptap > p:only-child > br:only-child)) [data-workspace-area="conversation"] {
-  &::before { opacity: .17; }
-  &::after { opacity: .11; }
+  --dim: #030a07e6;
 }
-
-/* a window with no room beside the column keeps only the still field (no loops) */
-@media (max-width: 62rem) {
-  [data-workspace-area="conversation"]::before, [data-workspace-area="conversation"]::after { display: none; }
+/* narrow windows and reduced motion: a still frame of the loop */
+@media (max-width: 62rem), (prefers-reduced-motion: reduce) {
+  [data-workspace-area="conversation"] {
+    &::before { display: none; }
+    &::after { animation: none; transform: translateY(1250px); }
+  }
 }
 
 /* ---------- thread open: the line + title glitch ---------- */
@@ -380,12 +364,8 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
 html:has(> body > [data-composer-drawer-layer]) [data-chat-composer-surface] {
   &::before, &::after { opacity: 0 !important; }
 }
-/* bullet time: while a reply streams the near rain holds still (far keeps falling)
-   and three rings leave the Watcher (.78 s in all) */
-html:has([data-streaming]) {
-  [data-workspace-area="conversation"]::before { animation-play-state: paused; }
-  [data-chat-composer-surface] { --r: rip; transition-delay: 0s; }
-}
+/* while a reply streams, three rings leave the Watcher (.78 s in all) */
+html:has([data-streaming]) [data-chat-composer-surface] { --r: rip; transition-delay: 0s; }
 @keyframes rip { 0% { transform: scale(.8); opacity: .7; } to { transform: scale(2.4); } }
 /* error (the thread's error banner is up): the red eye jitters once, then fades */
 html:has(.chat-banner-lane [data-variant="error"]) [data-chat-composer-surface]::after {
