@@ -309,10 +309,9 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
     background: var(--g);
     opacity: .45;
   }
-  /* on focus it blinks ten times (11 s), then stays lit */
+  /* on focus it fades four times (1.6 s each), then stays lit */
   &:has(:focus > p:only-child > br:only-child)::after {
     opacity: 1;
-    box-shadow: 0 0 8px #0affa099;
     animation: bl 1.6s ease-in-out 4 both;
   }
 }
@@ -402,7 +401,7 @@ html:has(.chat-banner-lane [data-variant="error"]) [data-chat-composer-surface]:
 [data-sidebar-row]:hover { background-color: #0affa01f; transition-duration: 0s; }
 [data-sidebar-row][aria-current] {
   background-color: #0affa01a !important;
-  box-shadow: inset 0 0 0 1px #0affa0;
+  box-shadow: inset 0 0 0 1px #347856;
   color: var(--hi);
   animation: flick .16s ease-out 1;
 }
@@ -435,9 +434,9 @@ svg.lucide { stroke-width: 1.7; }
 }
 
 /* ---------- terminal ---------- */
-[data-thread-terminal-drawer] { border-top: 1px solid #0affa080 !important; background: #020805; box-shadow: 0 -1px 18px #0affa024; }
+[data-thread-terminal-drawer] { border-top: 1px solid #347856 !important; background: #020805; }
 
-/* ---------- overlays: tooltips type on, menus flicker in, dialogs power on ---------- */
+/* ---------- overlays: tooltips wipe in, menus fade in, dialogs power on ---------- */
 [data-slot="tooltip-popup"] {
   overflow: hidden;
   background: #040f0a !important;
@@ -484,11 +483,11 @@ svg.lucide { stroke-width: 1.7; }
 /* ---------- controls ---------- */
 :is([data-slot="input"], [data-slot="select-trigger"]):focus-visible {
   outline: 2px solid #0affa0;
-  outline-offset: 2px;
+  outline-offset: -1px;
   border-color: #0affa0;
 }
-[data-slot="switch"][data-checked] { background: #0be08e !important; box-shadow: 0 0 10px #0affa066; }
-[data-slot="button"]:focus-visible { outline: 2px solid #0affa0; outline-offset: 2px; }
+[data-slot="switch"][data-checked] { background: #0be08e !important; }
+[data-slot="button"]:focus-visible { outline: 2px solid #0affa0; outline-offset: 0; }
 [data-slot="scroll-area-thumb"] { background: #1f6b4a !important; }
 [data-slot="scroll-area-thumb"]:hover { background: #2f9668 !important; }
 

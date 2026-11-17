@@ -11,7 +11,7 @@ t3 theme set ./matrix.json            # VPS: t3 is on PATH
 ~/.t3/bin/t3 theme set ./matrix.json  # Mac
 ```
 
-Needs T3 Nightly 0.1.10-nightly.20261115 or later: the theme is about 45,000 CSS chars, and older builds reject themes over 20,000.
+Needs T3 Nightly 0.1.10-nightly.20261115 or later: the theme is about 44,500 CSS chars, and older builds reject themes over 20,000.
 
 `theme set` with a file publishes the theme and selects it in one step. Undo by selecting another theme: `t3 theme set pixel-quest-plus`, or a built-in: `t3-chat`, `grove`, `ocean`, `ember`, `iris`.
 
@@ -19,7 +19,7 @@ Needs T3 Nightly 0.1.10-nightly.20261115 or later: the theme is about 45,000 CSS
 
 ```sh
 python3 -I build.py
-# css 45370/50000 chars, file 50695/316384 bytes, svgs: eye, prompt, rain, rain-field, rain-loop, spinner, watcher
+# css 44511/50000 chars, file 49836/316384 bytes, svgs: eye, prompt, rain, rain-field, rain-loop, spinner, watcher
 ```
 
 `build.py` minifies `src/theme.css` (quoted strings are left untouched), inlines `src/*.svg` as `data:` URLs, adds the colour roles from `src/colors.json` and writes `matrix.json`. It fails the build if the theme breaks a T3 limit (T3 Nightly 2026-11-15 and later): CSS over 50,000 chars, file over 316,384 bytes, a `url()` that is not `data:` or `#id`, `@import`, `image-set()`, `src()` or a backslash.
@@ -32,24 +32,25 @@ python3 -I build.py
 | `src/rain-loop.svg` | the rain's alpha mask, 1450x3200 (58 x 128 cells): opaque except two windows per column, each a 14 to 28 cell trail fading to a clear head cell |
 | `src/rain.svg` | the older sparse tile, still used by the reply decode effect |
 | `src/watcher.svg` | the Watcher sprite strip, five 30 px poses drawn on the pixel grid: shut, open, narrowed, red, and a still working pose for reduced motion |
-| `src/eye.svg` | the Watcher's working pose: a wide eye with ハ, 7, エ cycling in the iris (.75 s, `steps(1)`) |
+| `src/eye.svg` | the Watcher's working pose: a wide eye with ハ, 7, エ in the iris, one still glyph (no cycle) |
 | `src/prompt.svg` | the composer prompt chevron |
-| `src/spinner.svg` | 14 px glyph cycler from the Possessed kit |
+| `src/spinner.svg` | 14 px spinner from the Possessed kit: one glyph at a time, a soft cross-fade over 1.8 s, no two glyphs shown together |
 
 ## The look
 
 - **Typography.** Monospace for the chrome: sidebar, header, user bubbles, composer, work-log rows, tooltips, menus and popovers. Assistant prose stays sans; inline code is mono.
-- **Rain.** Modelled on the canvas reference page (https://chetan-examples.vercel.app/matrix): glyphs never move; a head writes down each column and leaves a trail that fades out in place. The conversation background is the fixed glyph field at full `#0affa0`. Over it sits one black overlay (`::after`) whose mask (`rain-loop.svg`) is opaque except two windows per column. The overlay moves down 25 px per step (`steps(128)` over 7.62 s, 420 px/s), so only the windows move: each passes over fixed glyphs, bright at the head and fading up the trail. The sidebar keeps the field still under an 84% wash.
-- **Intro.** A curtain (`::before`, a gradient) covers the streams on load and slides off downwards at the rain's speed (4.76 s), so the rain starts from the top edge everywhere at once.
-- **Repeats.** The field and the mask are both 1450 px wide, so a conversation wider than that repeats the same columns; the mask repeats every 3200 px (7.62 s), the field every 1000 px.
-- **Reading column.** A horizontal gradient over the field dims it to 20% under the reading column plus a 20 px gutter, fading over 110 px, so the windows show dim glyphs under prose and full ones at the sides. The column is computed from T3's `--chat-content-max-width` and lane insets, so the "wide" and "full" chat widths and an overlapping panel are followed. Assistant messages also sit on a dark pocket (`#030a07` at 85%, extended 14 px sideways with flat shadows, no blur).
-- **New thread.** The draft screen keeps 60% of the rain under the column; the composer card is opaque and stays clear.
-- **Dim while typing.** While the composer is focused and has text the rain under the column drops to 10%.
-- **Panels.** User bubble, composer card, code panes, menus, popovers and dialogs have a green hairline and a soft static glow. Code panes are CRT tubes: 12 px radius, radial dark-green background, static scanlines and vignette. Code text has no glow.
+- **Rain.** Modelled on the canvas reference page (https://chetan-examples.vercel.app/matrix): glyphs never move; a head writes down each column and leaves a trail that fades out in place. The conversation background is the fixed glyph field at full `#0affa0`. Over it sits one black overlay (`::after`) whose mask (`rain-loop.svg`) is opaque except two windows per column. The overlay moves down 25 px per step (`steps(128)` over 12 s, about 267 px/s), so only the windows move: each passes over fixed glyphs, bright at the head and fading up the trail. The sidebar keeps the field still under an 88% wash.
+- **Intro.** A curtain (`::before`, a gradient) covers the streams on load and slides off downwards over 7.5 s, so the rain starts from the top edge everywhere at once.
+- **Repeats.** The field and the mask are both 1450 px wide, so a conversation wider than that repeats the same columns; the mask repeats every 3200 px (12 s), the field every 1000 px.
+- **Reading column.** A horizontal gradient over the field lays an 88% dim (`#030a07e0`) under the reading column plus a 20 px gutter, fading over 110 px, so the windows show dim glyphs under prose and full ones at the sides. The column is computed from T3's `--chat-content-max-width` and lane insets, so the "wide" and "full" chat widths and an overlapping panel are followed. Assistant messages also sit on a dark pocket (`#030a07` at 85%, extended 14 px sideways with flat shadows, no blur).
+- **New thread.** The draft screen puts a 75% dim (`#030a07bf`) over the rain under the column; the composer card is opaque and stays clear.
+- **Dim while typing.** While the composer is focused and has text the dim under the column rises to 92% (`#030a07eb`).
+- **Panels.** User bubble, composer card, code panes, menus, popovers and dialogs have a `#347856` hairline and no glow. Code panes are CRT tubes: 12 px radius, radial dark-green background, static scanlines and vignette. Code text has no glow.
 - **Confirm dialogs** (`alert-dialog`) get the same hairline, and their buttons are the pills: blue for Cancel, red for Confirm.
-- **Composer.** Drawn `❯` chevron, mono input, block caret while empty (blinks ten times after focus, then stays lit). The outline is T3's own ring recoloured through `--chat-composer-outline`, brighter on focus.
-- **Sidebar.** The active row is a green outline box; hover is instant and fades out over .9 s; project monograms are green-bordered tiles. A running thread gets a slow sheen and its status icon becomes the glyph spinner.
-- **Tooltips** are green with dark ink and type on. **Selection** is the accent inverted. **Scrollbars** only change colour (a dim green thumb).
+- **Composer.** Drawn `❯` chevron, mono input, block caret while empty (four soft fades after focus, 1.6 s each, opacity 1 to .35; then it stays lit). The outline is T3's own ring recoloured through `--chat-composer-outline`, brighter on focus.
+- **Sidebar.** The active row has a `#347856` outline box; hover is instant and fades out over .9 s; project monograms are green-bordered tiles. A running thread gets a slow sheen and its status icon becomes the glyph spinner, one glyph at a time with a soft cross-fade.
+- **Tooltips** are dark with a solid `#347856` edge and a .2 s eased wipe. **Selection** is the accent inverted. **Scrollbars** only change colour (a dim green thumb).
+- **Contrast and focus.** Three text tiers: `#e3f6ea` for headings and the active row, `#c9e2d4` for body text, `#86ae98` for muted labels. Borders are `#347856`. Focus is a 2 px `#0affa0` outline: 1 px inside the edge on inputs and select triggers (over the border), at the edge on buttons, to limit clipping in `overflow: hidden` containers.
 
 ## The Watcher
 
@@ -60,7 +61,7 @@ A Sentinel eye in a 30 px disc, sitting on the composer's top edge at the left, 
 | idle | none | eye shut, still |
 | composer focused | `[data-chat-composer-surface]:has(.composer-tiptap:focus)` | opens once (.3 s, 3 steps), looks at you |
 | text in the composer | `:not(:has(.composer-tiptap > p:only-child > br:only-child))` | lids narrow, the pupil drops to the right, toward the text |
-| agent working | `:has([aria-label="Stop generation"], [aria-label="Stopping"], [aria-label="Queue message"], [aria-label="Steer message"])`: the composer's send button during a turn. It is "Stop generation" while the composer is empty, "Queue message" or "Steer message" once you type, and "Stopping" after you press stop | wide eye at 1.15x, a glyph cycling in the iris. This is the one loop the round adds |
+| agent working | `:has([aria-label="Stop generation"], [aria-label="Stopping"], [aria-label="Queue message"], [aria-label="Steer message"])`: the composer's send button during a turn. It is "Stop generation" while the composer is empty, "Queue message" or "Steer message" once you type, and "Stopping" after you press stop | wide eye at 1.15x with a glyph in the iris, still |
 | done | none: a `transition` on `transform` | steps back to rest in .45 s |
 | error | `html:has(.chat-banner-lane [data-variant="error"])`: T3's error banner over the thread | a red eye jitters, holds, and fades by 1.2 s. It plays when the banner appears and when you open a thread whose banner is still up |
 | a `/`, `@` or `$` picker is open | `html:has(> body > [data-composer-drawer-layer])`: T3 portals the picker into `body` in this layer, and it exists only while a picker is open | the eye fades out in .2 s and comes back when the picker closes |
@@ -74,36 +75,33 @@ Why these hooks: the send button is local to the composer and carries one of the
 
 - **Bullet time.** While a reply streams (`html:has([data-streaming])`) three rings leave the Watcher (.26 s each, .78 s in all, upper half only so they never cross the composer text). The rings are started by a variable, `--r`, that is set the moment streaming starts and released .8 s after it ends (a delayed transition), so a reply that streams for less than .78 s still gets all three.
 - **"Wake up, Neo…"** On the new-thread screen only (keyed on the centred composer overlay, so a thread that is still loading does not start it) the line types itself over the placeholder (13 steps), holds, and then fades as T3's real hint ("Ask anything. @ files, $ skills, / commands") fades in. 3.6 s in total, once per new-thread screen. T3 mounts a new placeholder every time the editor is emptied, which used to replay the line; the two animation names now come from the composer overlay, which mounts once per screen, starts with them (`@starting-style`) and drops them after 4.1 s. Typing and clearing after that shows the plain hint. Emptying the editor inside those first 4.1 s restarts the line, and it is cut off at 4.1 s.
-- **Déjà vu.** The row whose reply starts streaming jumps 6 px and dims for one 120 ms beat. It is a second animation on the row beside the mount flicker, keyed on `:has([data-streaming])`, so it needs no `:last-child`.
 - **Red pill / blue pill.** On confirm dialogs: `[data-slot="alert-dialog-footer"] > *` are capsules with a gloss on the left cap, blue by default and red for the `[data-slot="button"]` child (Confirm).
 
 ## Motion
 
 | effect | trigger | length |
 |---|---|---|
-| rain | always (a still frame under 62rem window width) | loop, 7.62 s, 128 steps; intro curtain 4.76 s once |
-| roll bar: a faint 140 px band crossing the window | always | loop, 16 s, 72 steps |
-| sheen on a sidebar row | only while that thread is working | loop, 2.4 s |
-| Watcher glyph cycle (inside the 30 px image) | only while the open thread's agent is working | loop, .75 s, 3 steps |
+| rain | always (a still frame under 62rem window width) | loop, 12 s, 128 steps; intro curtain 7.5 s once |
+| roll bar: a faint 140 px band crossing the window | always | loop, 28 s, 126 steps |
+| sheen on a sidebar row | only while that thread is working | loop, 4 s |
 | Watcher opens / steps back / red jitter | composer focus / turn ends / error banner | .3 s / .45 s / 1.2 s once |
 | bullet time: three rings | a reply is streaming | rings 3 x .26 s, completed even if the stream is shorter |
-| déjà vu | a reply starts streaming | .12 s once |
 | "Wake up, Neo…" | new-thread screen mounts | 3.6 s once |
 | the line: a scan band sweeps down the conversation | thread opens | .9 s once |
 | title glitch | thread opens | two .08 s jumps, once |
-| active sidebar row flicker | thread opens | .25 s once |
+| active sidebar row flicker | thread opens | .16 s fade once |
 | the timeline flickers | thread opens | three .17 s blinks, once |
-| a row flickers in | a row mounts (new message; also a row scrolled back in, usually still off screen) | .2 s once; .5 s for the row whose reply is streaming |
+| a row flickers in | a row mounts (new message; also a row scrolled back in, usually still off screen) | .18 s fade once; .5 s for the row whose reply is streaming |
 | the Watcher fades | a picker opens or closes | .2 s |
-| decode: bright glyphs on a dark plate step away over the new reply | a reply starts streaming | .8 s once |
+| decode: bright glyphs on a dark plate step away over the new reply | a reply starts streaming | .2 s fade once |
 | scan-line wipe down the whole reply | the reply finishes streaming | .65 s once |
-| menus and popovers flicker in, dialogs power on, tooltips type on | on open | .25 to .4 s once |
-| caret blink | composer focused and empty | ten times |
+| menus and popovers fade in (.16 s), dialogs power on (.32 s), tooltips wipe on (.2 s) | on open | once |
+| caret fades | composer focused and empty | four soft fades, 1.6 s each |
 
 How the two triggers that are not plain mount animations work:
 
 - **Thread open.** In T3 0.1.10 nothing above the message rows remounts when you switch threads, so a mount animation cannot fire. Sixteen rules set a custom property `--n` on the root from the last hex character of the active sidebar row's id, and twelve more set `--m` from the first character of the thread id (the character after a colon in `<env>:<thread>` or `<env>:mcp:<thread>`; 0 to 3 share the default). The scan line, the title and the timeline flicker use `animation-name: var(--n), var(--m)`: two animations with the same keyframes, so a switch that changes either name replays the effect. The sixteen `@keyframes` are identical and read their start values from the element (`--a`, `--b`), so one set serves all three effects and both keys. A switch is missed only when both characters match, or when the two names swap places: 1 switch in 100 for random ids (simulated), against 1 in 16 with the single key.
-- **Rows.** The timeline is a virtualised list that remounts rows as they scroll back in, so a mount animation on rows replays while you scroll: in a 6,000 px thread a slow scripted scroll (4 s, bottom to top) had a flickering row in view in 62 animation frames. The thread-open flicker is therefore on the timeline scroller (keyed as above), and the per-row mount flicker is .2 s, which is over before a row mounted 250 px outside the window reaches it. The same scroll now has one in view in 8 frames (2 on the way down, against 41).
+- **Rows.** The timeline is a virtualised list that remounts rows as they scroll back in, so a mount animation on rows replays while you scroll: in a 6,000 px thread a slow scripted scroll (4 s, bottom to top) had a flickering row in view in 62 animation frames. The thread-open flicker is therefore on the timeline scroller (keyed as above), and the per-row mount flicker is .18 s, which is over before a row mounted 250 px outside the window reaches it. The same scroll now has one in view in 8 frames (2 on the way down, against 41).
 - **New reply.** The markdown root carries `data-streaming` while a message streams. The decode is an animation keyed on that attribute, so it starts once when streaming starts and is not replayed by text updates. The wipe is a *transition* that runs when the attribute goes away, so it never plays on mount or on thread open.
 
 Reduced motion: every animation and transition the theme adds is switched off by a scoped selector list (not `*`), the rain stays as a still image, both spinner selectors (`lucide-loader*` and the sidebar's `lucide-circle-dashed`) go back to T3's icon, and the Watcher's working pose is swapped for a still frame of the sprite. A `prefers-reduced-motion` query inside an SVG image did not stop the glyph cycle in the test Chrome, so the swap is done in the page CSS. Checked in the real app in idle, focused, typing, working, streaming, error and draft states: 0 running animations, and the glyph does not change.
@@ -112,7 +110,7 @@ Reduced motion: every animation and transition the theme adds is switched off by
 
 - **Rain under prose is masked down** instead of running at full strength behind 87% pockets, and the pockets have no 34 px blurred shadow (a paint cost on every row while scrolling).
 - **The sidebar rain is still.** The kit animated two more layers there; a still field gives the same texture with no loop.
-- **Slower rain** (125 and 31 px/s instead of 176 and 48) and softer text (`#c9e2d4` on `#030a07`, about 14:1) for all-day use.
+- **Slower rain** (one moving layer at about 267 px/s; the kit ran two, at 176 and 48 px/s) and softer text (`#c9e2d4` on `#030a07`, about 14:1) for all-day use.
 - **The glitch runs once per thread open** instead of every 11 s, and without the animated red/cyan `text-shadow`.
 - **No `filter: drop-shadow` on icons, no text glow on code or headings, no glowing scrollbar.** The only text glow is on the one-line header title.
 - **The roll bar is stepped** (see Performance).
@@ -121,18 +119,18 @@ Reduced motion: every animation and transition the theme adds is switched off by
 
 ## Performance
 
-Rules the CSS follows: every loop is a `transform` on its own layer; rain images are static and use `steps()`; nothing animates inside an SVG and `background-position` never animates; no filters, no blur, no animated `text-shadow`; glow is a static `box-shadow` on a handful of panels. Exceptions, all small: the Watcher's glyph cycle is an animation inside a 30 px SVG image; "Wake up, Neo…" animates `clip-path` and `color` on one line of text, once; the Watcher's pose changes are discrete `background-position` swaps, not animations.
+Rules the CSS follows: every loop is a `transform` on its own layer; rain images are static and use `steps()`; nothing animates inside an SVG and `background-position` never animates; no filters, no blur, no animated `text-shadow`; there is no glow; `box-shadow` only draws hairline rings and flat panel shadows. Exceptions, all small: "Wake up, Neo…" animates `clip-path` and `color` on one line of text, once; the Watcher's pose changes are discrete `background-position` swaps, not animations.
 
 Running animations per state (`document.getAnimations()` in the real app):
 
 | state | running |
 |---|---|
-| thread, idle | 2: rain, roll bar (plus the intro curtain for 4.76 s after load) |
-| draft, just opened | 3 + caret blink (11 s) + "Wake up" x2 and its two gate transitions (4 s), then 3 |
-| composer focused and empty | 4 for 11 s (caret blink), then 3; the Watcher's open is a .3 s one-shot |
+| thread, idle | 2: rain, roll bar (plus the intro curtain for 7.5 s after load) |
+| draft, just opened | 3 + caret fades (6.4 s) + "Wake up" x2 and its two gate transitions (4 s), then 3 |
+| composer focused and empty | 4 for 6.4 s (caret fades), then 3; the Watcher's open is a .3 s one-shot |
 | typing | 3 |
-| thread working | 3 + sheen, T3's own two live-activity animations and the 14 px spinner, plus the Watcher's glyph cycle (inside the image, so not listed by `getAnimations()`) |
-| reply streaming | 2 looping (rain, roll bar) + sheen; one-shots at the start: row flicker, déjà vu (.12 s), decode (.8 s), rings (.78 s) |
+| thread working | 3 + sheen, T3's own two live-activity animations and the 14 px spinner |
+| reply streaming | 2 looping (rain, roll bar) + sheen; one-shots at the start: row flicker, decode (.2 s), rings (.78 s) |
 | turn ends | the wipe (2 transitions, .65 s), the Watcher's step back (.45 s) and the `--r` release (.8 s); back to 3 |
 | error banner appears | 3 + the red eye for 1.2 s |
 | window under 992 px | 1 (roll bar) |
@@ -167,7 +165,7 @@ The caret-blink row of round 5 (34 ms idle) was not re-measured: the blink did n
 What this means:
 
 - **Idle** the theme costs at most about 15 ms of main thread per 5 s, about 25 times less than the reference canvas page.
-- **The Watcher is free at rest** (idle, focused and typing are still images). While the agent works, its glyph cycle makes about 4 main frames a second and costs 55 to 120 ms per 5 s (57 in round 5, 120 in this one), a third of the reference page at worst, and only for the length of the turn. Under a busy main thread it adds nothing measurable (245 ms against 250 to 255 without it).
+- **The Watcher is free at rest** (idle, focused and typing are still images). While the agent works, its former glyph cycle made about 4 main frames a second and cost 55 to 120 ms per 5 s (57 in round 5, 120 in this one; measured before the cycle was removed), a third of the reference page at worst, and only for the length of the turn. Under a busy main thread it adds nothing measurable (245 ms against 250 to 255 without it).
 - **"Wake up, Neo…" is the most expensive one-shot**: `clip-path` and `color` are animated on the main thread, so the first seconds of a new-thread screen cost about 270 ms per 5 s, against 25 to 60 ms without the line and 3 ms once it has settled. It runs once per new-thread screen; if that matters, drop the type-on and keep a plain fade.
 - **Page-style rain (round 7)**, headless Chrome 157 on the MacBook, no GPU, 1440x900 at DPR 2, a test page with the theme CSS, 5 s traces: main thread 22 ms busy / 0.7 ms idle (old two-layer rain 35 / 0.3), 60 frames/s busy (old 57), no paints per step. Raster work is about 455 ms per 5 s on raster threads (old 215 to 234): the overlay layer is 3200 px taller than the window. A three-layer mask composite (the first intro design) repainted on every step and cost 17 to 20 s of raster per 5 s; the overlay keeps one mask layer for that reason.
 - **Busy**, the per-frame main-thread cost is about the same with and without the theme (about 1.2 ms per main frame). The totals are lower with the theme only because fewer frames were produced.
@@ -239,7 +237,7 @@ These depend on T3 internals that have no stable hook. If a T3 update breaks the
 - `[data-chat-composer-surface]`: the Watcher's anchor. It must stay `position: static` inside a positioned card (`[data-chat-composer-main-surface]`) with free pseudos; if T3 starts using them, the eye disappears or lands elsewhere.
 - `[aria-label="Stop generation"]`, `"Stopping"`, `"Queue message"`, `"Steer message"` inside the composer: "the agent is working". English labels; if one changes, the Watcher drops the working pose in that state.
 - `.chat-banner-lane [data-variant="error"]`: the thread error banner (a Tailwind-style class plus the alert's variant). If it changes, the error state never plays.
-- `html:has([data-streaming])`: bullet time. `[data-timeline-row-kind]:has([data-streaming])`: déjà vu.
+- `html:has([data-streaming])`: bullet time. `[data-timeline-row-kind]:has([data-streaming])`: the row flicker for the streaming row.
 - `[data-chat-composer-overlay].items-center .text-placeholder`: "Wake up, Neo…". It relies on the Tailwind class `.items-center`, which the overlay has only on the new-thread screen, and on the overlay mounting once per new-thread screen (it survived typing and clearing; only the placeholder was replaced). If the class goes, the line never plays and the plain hint shows.
 - `[data-slot="alert-dialog-footer"] > *` and `> [data-slot="button"]`: the pills. Cancel is `[data-slot="alert-dialog-close"]`, Confirm is a plain button; a footer with a third control would turn it into a pill too.
 - `[data-slot$="dialog-popup"]`: matches both `dialog-popup` and `alert-dialog-popup`.
