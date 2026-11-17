@@ -24,7 +24,7 @@
 /* Fixed glyphs (rain-field) under a black overlay; its mask (rain-loop) has two windows per column, each
    a trail fading to a clear head cell. The overlay moves down one cell per step, so only heads move. */
 [data-workspace-area="conversation"], [data-slot="sidebar-inner"] {
-  background: linear-gradient(#030a07d6, #030a07d6), var(--field), var(--bg) !important;
+  background: linear-gradient(#030a07e0, #030a07e0), var(--field), var(--bg) !important;
 }
 [data-slot="sidebar-inner"] { border-right: 1px solid var(--line); font-family: var(--mono); }
 [data-workspace-area="conversation"] {
@@ -34,7 +34,7 @@
   /* centre and half-width of the reading column (T3 sets the lane insets when a panel overlaps) */
   --c: calc(50% + (var(--chat-lane-inset-start, 0px) - var(--chat-lane-inset-end, 0px)) / 2);
   --e: calc(var(--chat-content-max-width, 46rem) / 2 + 20px);
-  --dim: #030a07cc;
+  --dim: #030a07e0;
   background: linear-gradient(90deg, #0000 calc(var(--c) - var(--e) - 110px), var(--dim) calc(var(--c) - var(--e)) calc(var(--c) + var(--e)), #0000 calc(var(--c) + var(--e) + 110px)), var(--field), var(--bg) !important;
   &::before, &::after {
     content: "";
@@ -47,23 +47,23 @@
     z-index: -2;
     background: var(--bg);
     mask: var(--loop) 0 0 / 1450px 3200px;
-    animation: rain 7.62s steps(128) infinite;
+    animation: rain 12s steps(128) infinite;
   }
   /* intro: a curtain over the streams slides off downwards at the rain's speed */
   &::before {
     inset: 0;
     z-index: -1;
     background: linear-gradient(#0000, var(--bg) 500px);
-    animation: rain-in 4.76s steps(80) forwards;
+    animation: rain-in 7.5s steps(80) forwards;
   }
-  &:has(~ [data-chat-composer-overlay].items-center) { --dim: #030a0766; }
+  &:has(~ [data-chat-composer-overlay].items-center) { --dim: #030a07bf; }
 }
 @keyframes rain { to { transform: translateY(3200px); } }
 @keyframes rain-in { to { transform: translateY(2000px); } }
 [data-timeline-loading] { background: none !important; }
 /* typing (composer focused and not empty) dims the rain under the column further */
 :root:has(.composer-tiptap:focus):not(:has(.composer-tiptap > p:only-child > br:only-child)) [data-workspace-area="conversation"] {
-  --dim: #030a07e6;
+  --dim: #030a07eb;
 }
 /* narrow windows and reduced motion: a still frame of the loop */
 @media (max-width: 62rem), (prefers-reduced-motion: reduce) {
@@ -142,7 +142,6 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
 [data-chat-header] li[aria-current="page"] [data-slot="workspace-breadcrumb-text"] {
   color: var(--hi);
   font-weight: 700;
-  text-shadow: 0 0 10px #0affa066;
   --a: translate(3px, -1px) skewX(-12deg);
   --b: .55;
   animation: .16s steps(2, jump-none) .2s 2;
@@ -158,9 +157,9 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
   height: 140px;
   z-index: 50;
   pointer-events: none;
-  background: linear-gradient(transparent, #0affa00d, transparent);
+  background: linear-gradient(transparent, #0affa008, transparent);
   transform: translateY(-160px);
-  animation: roll 16s steps(72) infinite;
+  animation: roll 28s steps(126) infinite;
 }
 @keyframes roll { 0% { transform: translateY(-160px); } 55%, to { transform: translateY(100vh); } }
 
@@ -175,16 +174,15 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
 }
 /* a row that mounts (new message) flickers for .2 s: short enough to be over before a row that
    scrolls back in reaches the window. The streaming row keeps the long one (see deja vu). */
-[data-timeline-row-kind] { animation: boot .2s steps(1) backwards; }
-@keyframes boot { 0% { opacity: 0; } 20% { opacity: .7; } 35% { opacity: .1; } 55% { opacity: 1; } 75% { opacity: .5; } }
+[data-timeline-row-kind] { animation: boot .18s ease-out backwards; }
+@keyframes boot { from { opacity: 0; } to { opacity: 1; } }
 
 /* user message: a terminal entry */
 [data-user-message-bubble] {
   background: #04150c !important;
   color: #d5eede;
-  border: 1px solid #0affa061 !important;
-  border-radius: 10px;
-  box-shadow: 0 0 16px #0affa01f, inset 0 0 12px #0affa00d;
+  border: 1px solid #347856 !important;
+  border-radius: 16px;
   font-family: var(--mono);
   font-size: .93em;
   line-height: 1.6;
@@ -218,7 +216,7 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
   blockquote {
     border-left: 2px solid #0affa066;
     background: #0affa00a;
-    color: #a9c8b7;
+    color: #86ae98;
     border-radius: 0 6px 6px 0;
     padding: .4em 1em;
   }
@@ -239,7 +237,7 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
   }
   &[data-streaming]::before {
     background: var(--rain) -60px -40px / 1280px 800px, var(--bg);
-    animation: dc .8s steps(1) 1;
+    animation: dc .2s ease-out 1;
   }
   &::after {
     background: linear-gradient(transparent 70%, #0affa01f calc(100% - 2px), #7dffc8 0);
@@ -248,10 +246,9 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
   }
   &[data-streaming]::after { transform: scaleY(0); opacity: 1; transition: none; }
 }
-@keyframes dc { 0% { opacity: 1; } 22% { opacity: .55; } 38% { opacity: .85; } 55% { opacity: .4; } 72% { opacity: .6; } 86% { opacity: .2; } }
+@keyframes dc { from { opacity: 1; } to { opacity: 0; } }
 /* deja vu: the row whose reply starts streaming repeats itself for one 120 ms beat */
-[data-timeline-row-kind]:has([data-streaming]) { animation: boot .5s steps(1) backwards, dv .12s steps(1) .3s; }
-@keyframes dv { 0% { transform: translate(6px, -3px); opacity: .5; } }
+[data-timeline-row-kind]:has([data-streaming]) { animation: boot .5s ease-out backwards; }
 
 /* work log: green hairlines, mono */
 [data-timeline-row-kind]:not([data-message-role]) { font-family: var(--mono); }
@@ -263,7 +260,7 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
   overflow: hidden;
   border-radius: 12px;
   background: radial-gradient(130% 120% at 50% 45%, #04150c, #020805 70%) !important;
-  box-shadow: 0 0 0 1px #0affa047, 0 0 18px #0affa014, inset 0 0 32px #0affa010;
+  border: 1px solid #347856;
 }
 .chat-markdown-codeblock pre { line-height: 1.6; }
 /* static scanlines + vignette */
@@ -278,13 +275,13 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
 /* ---------- composer: prompt and block caret ---------- */
 /* T3 draws the card outline as a ring on ::after; recolour it instead of adding a border */
 [data-slot="composer-host"] {
-  --chat-composer-outline: #0affa052;
+  --chat-composer-outline: #347856;
   background: radial-gradient(120% 140% at 50% 0, #06180f, #040e09 70%) !important;
-  box-shadow: 0 0 22px #0affa017, inset 0 0 18px #0affa00d, 0 8px 24px #0008;
+  box-shadow: 0 8px 24px #0008;
 }
 [data-slot="composer-host"]:focus-within {
-  --chat-composer-outline: #0affa0b3;
-  box-shadow: 0 0 26px #0affa02e, inset 0 0 18px #0affa012, 0 8px 24px #0008;
+  --chat-composer-outline: #0affa0;
+  box-shadow: 0 8px 24px #0008;
 }
 .composer-tiptap { caret-color: var(--g); font-family: var(--mono); }
 /* the editor and its placeholder share a grandparent: the prompt sits on it and both shift right */
@@ -316,11 +313,11 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
   &:has(:focus > p:only-child > br:only-child)::after {
     opacity: 1;
     box-shadow: 0 0 8px #0affa099;
-    animation: bl 1.1s steps(1) 10;
+    animation: bl 1.6s ease-in-out 4 both;
   }
 }
 .composer-tiptap:has(> p:only-child > br:only-child) { caret-color: transparent; }
-@keyframes bl { 50% { opacity: 0; } }
+@keyframes bl { 50% { opacity: .35; } to { opacity: 1; } }
 
 /* ---------- the Watcher: a 30 px Sentinel eye on the composer's top edge ---------- */
 /* The surface is static inside the card, and its pseudos are free: ::before is the eye,
@@ -373,9 +370,9 @@ html:has(.chat-banner-lane [data-variant="error"]) [data-chat-composer-surface]:
   clip-path: none;
   opacity: 1;
   background: var(--w) -90px 0;
-  animation: we 1.2s steps(1) forwards;
+  animation: we 1.2s ease-out forwards;
 }
-@keyframes we { 0%, 30% { transform: translate(2px); } 15% { transform: translate(-2px, 1px); } 45% { transform: none; } 60% { opacity: 1; animation-timing-function: linear; } to { opacity: 0; } }
+@keyframes we { from { opacity: 1; } to { opacity: 0; } }
 
 /* "Wake up, Neo...": typed once over the new-thread placeholder, then the real hint comes back.
    Keyed on the draft layout (centred overlay): a thread that is still loading has the overlay at the bottom.
@@ -405,9 +402,9 @@ html:has(.chat-banner-lane [data-variant="error"]) [data-chat-composer-surface]:
 [data-sidebar-row]:hover { background-color: #0affa01f; transition-duration: 0s; }
 [data-sidebar-row][aria-current] {
   background-color: #0affa01a !important;
-  box-shadow: inset 0 0 0 1px #0affa059;
+  box-shadow: inset 0 0 0 1px #0affa0;
   color: var(--hi);
-  animation: flick .25s steps(1) 1;
+  animation: flick .16s ease-out 1;
 }
 /* running threads: a slow decoding sheen, only while the row's status is one of the running labels */
 [data-sidebar-row]:is([aria-label*=", Working,"], [aria-label*=", Goal,"], [aria-label*=", Setting up,"])::after {
@@ -418,16 +415,16 @@ html:has(.chat-banner-lane [data-variant="error"]) [data-chat-composer-surface]:
   left: 0;
   width: 40%;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, #0affa029, transparent);
+  background: linear-gradient(90deg, transparent, #0affa014, transparent);
   transform: translateX(-110%);
-  animation: sheen 2.4s ease-in-out infinite;
+  animation: sheen 4s ease-in-out infinite;
 }
 @keyframes sheen { to { transform: translateX(260%); } }
 [data-slot="project-monogram"] svg {
   background: #021509 !important;
   color: var(--g) !important;
-  border-radius: 4px;
-  box-shadow: 0 0 0 1px #0affa0b3, 0 0 6px #0affa059;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px #347856;
 }
 svg.lucide { stroke-width: 1.7; }
 /* spinners become a mutating glyph */
@@ -443,36 +440,35 @@ svg.lucide { stroke-width: 1.7; }
 /* ---------- overlays: tooltips type on, menus flicker in, dialogs power on ---------- */
 [data-slot="tooltip-popup"] {
   overflow: hidden;
-  background: var(--g) !important;
-  color: #00140a !important;
-  border: 0;
-  border-radius: 4px;
+  background: #040f0a !important;
+  color: #c9e2d4 !important;
+  border: 1px solid #347856;
+  border-radius: 6px;
   font-family: var(--mono);
   font-weight: 600;
-  box-shadow: 0 0 14px #0affa052 !important;
 }
 [data-slot="tooltip-popup"]::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: var(--g);
+  background: #040f0a;
   transform-origin: right;
   transform: scaleX(0);
-  animation: ty .4s steps(12) 1;
+  animation: ty .2s ease-out 1;
 }
-@keyframes ty { 0% { transform: scaleX(1); } }
+@keyframes ty { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 :is([data-slot="menu-popup"], [data-slot="popover-popup"]) {
   background: #040f0a !important;
-  border-radius: 10px;
+  border-radius: 12px;
   font-family: var(--mono);
-  box-shadow: 0 0 0 1px #0affa061, 0 0 24px #0affa024, 0 18px 40px #0009 !important;
-  animation: flick .25s steps(1) 1;
+  box-shadow: 0 0 0 1px #347856, 0 18px 40px #0009 !important;
+  animation: flick .16s ease-out 1;
 }
-@keyframes flick { 0% { opacity: 0; } 30% { opacity: 1; } 50% { opacity: .3; } 70% { opacity: 1; } }
+@keyframes flick { from { opacity: 0; } to { opacity: 1; } }
 [data-slot$="dialog-popup"] {
   background: #040f0a !important;
-  border-radius: 14px;
-  box-shadow: 0 0 0 1px #0affa061, 0 0 40px #0affa029, 0 24px 64px #000c !important;
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px #347856, 0 24px 64px #000c !important;
   animation: pwr .32s cubic-bezier(.2, .8, .2, 1) 1;
 }
 @keyframes pwr { 0% { scale: 1.04 .02; opacity: .3; } }
@@ -487,12 +483,12 @@ svg.lucide { stroke-width: 1.7; }
 
 /* ---------- controls ---------- */
 :is([data-slot="input"], [data-slot="select-trigger"]):focus-visible {
-  outline: none;
-  border-color: #0affa099;
-  box-shadow: 0 0 0 1px #0affa066, 0 0 12px #0affa033 !important;
+  outline: 2px solid #0affa0;
+  outline-offset: 2px;
+  border-color: #0affa0;
 }
 [data-slot="switch"][data-checked] { background: #0be08e !important; box-shadow: 0 0 10px #0affa066; }
-[data-slot="button"]:focus-visible { outline: 1px solid var(--g); outline-offset: 2px; }
+[data-slot="button"]:focus-visible { outline: 2px solid #0affa0; outline-offset: 2px; }
 [data-slot="scroll-area-thumb"] { background: #1f6b4a !important; }
 [data-slot="scroll-area-thumb"]:hover { background: #2f9668 !important; }
 
