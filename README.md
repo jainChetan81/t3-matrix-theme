@@ -1,6 +1,6 @@
 # Matrix theme for T3 Code
 
-A green "digital rain" theme for T3 Code in the **Possessed** direction from the Claude Design rounds: page-style digital rain behind the whole conversation (heads writing down fixed glyph columns, as on the canvas reference page), a phosphor-terminal chrome, short one-shot effects when a thread opens or a reply arrives, and the **Watcher**, a 30 px Sentinel eye on the composer that follows what you and the agent are doing. Prose stays in the app's sans on a dark pocket, so it reads comfortably all day, and the idle cost is at most about 15 ms of main thread per 5 s.
+A green "digital rain" theme for T3 Code in the **Possessed** direction from the Claude Design rounds: page-style digital rain behind the whole conversation (heads writing down fixed glyph columns, as on the canvas reference page), a phosphor-terminal chrome, short one-shot effects when a thread opens or a reply arrives, and the **Watcher**, a 30 px White Rabbit on the composer that follows what you and the agent are doing. Prose stays in the app's sans on a dark pocket, so it reads comfortably all day, and the idle cost is at most about 15 ms of main thread per 5 s.
 
 Screenshots from the real app (T3 0.1.10) are in `design/verify/`; see "Verify".
 
@@ -11,7 +11,7 @@ t3 theme set ./matrix.json            # VPS: t3 is on PATH
 ~/.t3/bin/t3 theme set ./matrix.json  # Mac
 ```
 
-Needs T3 Nightly 0.1.10-nightly.20261115 or later: the theme is about 44,500 CSS chars, and older builds reject themes over 20,000.
+Needs T3 Nightly 0.1.10-nightly.20261115 or later: the theme is about 48,000 CSS chars, and older builds reject themes over 20,000.
 
 `theme set` with a file publishes the theme and selects it in one step. Undo by selecting another theme: `t3 theme set pixel-quest-plus`, or a built-in: `t3-chat`, `grove`, `ocean`, `ember`, `iris`.
 
@@ -19,7 +19,7 @@ Needs T3 Nightly 0.1.10-nightly.20261115 or later: the theme is about 44,500 CSS
 
 ```sh
 python3 -I build.py
-# css 44511/50000 chars, file 49836/316384 bytes, svgs: eye, prompt, rain, rain-field, rain-loop, spinner, watcher
+# css 48068/50000 chars, file 53437/316384 bytes, svgs: prompt, rabbit, rabbit-work, rain, rain-field, rain-loop, spinner, spinner-b, spinner-c, spinner-d
 ```
 
 `build.py` minifies `src/theme.css` (quoted strings are left untouched), inlines `src/*.svg` as `data:` URLs, adds the colour roles from `src/colors.json` and writes `matrix.json`. It fails the build if the theme breaks a T3 limit (T3 Nightly 2026-11-15 and later): CSS over 50,000 chars, file over 316,384 bytes, a `url()` that is not `data:` or `#id`, `@import`, `image-set()`, `src()` or a backslash.
@@ -31,10 +31,10 @@ python3 -I build.py
 | `src/rain-field.svg` | the fixed glyph field: 1450x1000, one 25 px glyph per cell (58 x 40), half-width katakana, 0-9 and A-Z in `#0affa0`. Generated with the mask by `python3 -I design/gen-page-rain.py [seed]` |
 | `src/rain-loop.svg` | the rain's alpha mask, 1450x3200 (58 x 128 cells): opaque except two windows per column, each a 14 to 28 cell trail fading to a clear head cell |
 | `src/rain.svg` | the older sparse tile, still used by the reply decode effect |
-| `src/rabbit.svg` | the Watcher sprite strip, four 30 px White Rabbit poses on the pixel grid: ears folded, ears up, one ear tilted, red |
+| `src/rabbit.svg` | the Watcher sprite strip, six 30 px frames of the White Rabbit on the pixel grid: folded, ears up, one ear tilted, red, a blink (ears up, eyes shut) and a twitch (one ear raised) |
 | `src/rabbit-work.svg` | the Watcher's working pose: ears up with ア, 7, ヌ cycling under the rabbit (`steps(1)`, .75 s loop) |
 | `src/prompt.svg` | the composer prompt chevron |
-| `src/spinner.svg` | 14 px spinner from the Possessed kit: one glyph at a time, a soft cross-fade over 1.8 s, no two glyphs shown together |
+| `src/spinner.svg`, `spinner-b.svg`, `spinner-c.svg`, `spinner-d.svg` | 14 px sidebar spinners from the Possessed kit: one glyph at a time with a soft cross-fade. The four differ in glyph set, cycle (1.8, 1.35, 2.25 and 1.6 s) and phase; each sidebar row takes one by its id (see The look) |
 
 ## The look
 
@@ -45,29 +45,29 @@ python3 -I build.py
 - **Reading column.** A horizontal gradient over the field lays an 88% dim (`#030a07e0`) under the reading column plus a 20 px gutter, fading over 110 px, so the windows show dim glyphs under prose and full ones at the sides. The column is computed from T3's `--chat-content-max-width` and lane insets, so the "wide" and "full" chat widths and an overlapping panel are followed. Assistant messages also sit on a dark pocket (`#030a07` at 85%, extended 14 px sideways with flat shadows, no blur).
 - **New thread.** The draft screen puts a 75% dim (`#030a07bf`) over the rain under the column; the composer card is opaque and stays clear.
 - **Dim while typing.** While the composer is focused and has text the dim under the column rises to 92% (`#030a07eb`).
-- **Panels.** User bubble, composer card, code panes, menus, popovers and dialogs have a `#347856` hairline and no glow. Code panes are CRT tubes: 12 px radius, radial dark-green background, static scanlines and vignette. Code text has no glow.
+- **Panels.** User bubble, composer card and code panes have a `#347856` hairline and no glow. Menus and popovers have a `#0affa061` hairline and a faint green halo (`0 0 24px #0affa024`); dialogs have a `#0affa061` hairline and a `0 0 40px #0affa029` glow. Those overlay glows are the only ones, and they show only while the overlay is open. Code panes are CRT tubes: 12 px radius, radial dark-green background, static scanlines and vignette. Code text has no glow.
 - **Confirm dialogs** (`alert-dialog`) get the same hairline, and their buttons are the pills: blue for Cancel, red for Confirm.
 - **Composer.** Drawn `❯` chevron, mono input, block caret while empty (four soft fades after focus, 1.6 s each, opacity 1 to .35; then it stays lit). The outline is T3's own ring recoloured through `--chat-composer-outline`, brighter on focus.
-- **Sidebar.** The active row has a `#347856` outline box; hover is instant and fades out over .9 s; project monograms are green-bordered tiles. A running thread gets a slow sheen and its status icon becomes the glyph spinner, one glyph at a time with a soft cross-fade.
-- **Tooltips** are dark with a solid `#347856` edge and a .2 s eased wipe. **Selection** is the accent inverted. **Scrollbars** only change colour (a dim green thumb).
+- **Sidebar.** The active row has a `#0affa059` outline and a stepped flicker when it becomes current; hover is instant and fades out over .9 s; project monograms are green-bordered tiles. A running thread gets a slow sheen and its status icon becomes the glyph spinner. Each row takes one of four spinner variants from the last hex character of its `data-sidebar-row` (0 to 3 the first, 4 to 7 `spinner-b`, 8 to b `spinner-c`, c to f `spinner-d`), so two running rows never cycle in step. The Working and Connecting status labels are the theme green (`#0affa0`: 15:1 on a normal row, at least 10:1 on selected and sheen rows) instead of Tailwind sky, which is off-palette and low contrast on the dark rows.
+- **Tooltips** are dark with a solid `#347856` edge and a `#0affa052` halo; they type on in 12 steps over .4 s, a dark cover wiping off the text. **Selection** is the accent inverted. **Scrollbars** only change colour (a dim green thumb).
 - **Contrast and focus.** Three text tiers: `#e3f6ea` for headings and the active row, `#c9e2d4` for body text, `#86ae98` for muted labels. Borders are `#347856`. Focus is a 2 px `#0affa0` outline: 1 px inside the edge on inputs and select triggers (over the border), at the edge on buttons, to limit clipping in `overflow: hidden` containers.
 
 ## The Watcher
 
-A Sentinel eye in a 30 px disc, sitting on the composer's top edge at the left, on thread and new-thread screens. It is drawn on `[data-chat-composer-surface]::before`; `::after` carries the red error copy and the bullet-time rings. All hooks below were read from the running app (T3 0.1.10), not guessed.
+A White Rabbit in a 30 px dark disc, on the composer's top edge at the left, on thread and new-thread screens. The disc has no ring. The rabbit is drawn on `[data-chat-composer-surface]::before`; `::after` carries the red error copy and the bullet-time rings, which keep their green hairline. Its six 30 px frames are in `src/rabbit.svg` (folded, ears up, one ear tilted, red, blink, twitch), and its working pose is `src/rabbit-work.svg`. The Sentinel eye it replaced is no longer built; its sources are kept as `design/round4/possessed-eye-sprite.svg` and `design/round4/possessed-eye-work.svg`. The board for the rabbit is `design/round4/boards/watcher-concepts.dc.html`, row d. All hooks below were read from the running app (T3 0.1.10), not guessed.
 
 | state | hook | what you see |
 |---|---|---|
-| idle | none | eye shut, still |
-| composer focused | `[data-chat-composer-surface]:has(.composer-tiptap:focus)` | opens once (.3 s, 3 steps), looks at you |
-| text in the composer | `:not(:has(.composer-tiptap > p:only-child > br:only-child))` | lids narrow, the pupil drops to the right, toward the text |
-| agent working | `:has([aria-label="Stop generation"], [aria-label="Stopping"], [aria-label="Queue message"], [aria-label="Steer message"])`: the composer's send button during a turn. It is "Stop generation" while the composer is empty, "Queue message" or "Steer message" once you type, and "Stopping" after you press stop | wide eye at 1.15x with a glyph in the iris, still |
+| idle | none | ears folded, eyes shut; one ear twitches every 8 s (the twitch frame holds for .32 s) |
+| composer focused | `[data-chat-composer-surface]:has(.composer-tiptap:focus)` | ears up, green eyes; opens once (.3 s, 3 steps), then blinks every 7 s (.28 s) |
+| text in the composer | `:not(:has(.composer-tiptap > p:only-child > br:only-child))` | one ear tilted, the rabbit nudged 1 px toward the text; no twitch or blink |
+| agent working | `:has([aria-label="Stop generation"], [aria-label="Stopping"], [aria-label="Queue message"], [aria-label="Steer message"])`: the composer's send button during a turn. It is "Stop generation" while the composer is empty, "Queue message" or "Steer message" once you type, and "Stopping" after you press stop | ears up with ア, 7, ヌ cycling under the head (one .75 s `steps(1)` loop) at 1.15x |
 | done | none: a `transition` on `transform` | steps back to rest in .45 s |
-| error | `html:has(.chat-banner-lane [data-variant="error"])`: T3's error banner over the thread | a red eye jitters, holds, and fades by 1.2 s. It plays when the banner appears and when you open a thread whose banner is still up |
-| a `/`, `@` or `$` picker is open | `html:has(> body > [data-composer-drawer-layer])`: T3 portals the picker into `body` in this layer, and it exists only while a picker is open | the eye fades out in .2 s and comes back when the picker closes |
-| reduced motion | the scoped reduced-motion block | the same poses with no motion; working is a still wide eye with one glyph; the red eye stays while the banner is up, except over the working pose |
+| error | `html:has(.chat-banner-lane [data-variant="error"])`: T3's error banner over the thread | a dark red disc with red eyes and nose jitters once, holds, and fades by 1.2 s. It plays when the banner appears and when you open a thread whose banner is still up |
+| a `/`, `@` or `$` picker is open | `html:has(> body > [data-composer-drawer-layer])`: T3 portals the picker into `body` in this layer, and it exists only while a picker is open | the rabbit fades out in .2 s and comes back when the picker closes |
+| reduced motion | the scoped reduced-motion block | no twitch, blink or glyph cycle: idle, focused and typing hold their frame; working is the still focused frame; the red copy stays while the banner is up, except over the working pose |
 
-The `/`, `@` and `$` pickers open upward from the card's top edge and sit above the Watcher (they are `position: fixed`, z-index 40), which used to cut off its top half. The Watcher (eye, rings and red copy) is now hidden while a picker is open.
+The `/`, `@` and `$` pickers open upward from the card's top edge and sit above the Watcher (they are `position: fixed`, z-index 40), which used to cut off its top half. The Watcher (rabbit, rings and red copy) is now hidden while a picker is open.
 
 Why these hooks: the send button is local to the composer and carries one of the four running labels from send to the end of the turn, whatever is in the composer (the sidebar "Working" label and the `working` timeline row cover the same span, but one can be scrolled away and the other is virtualised). `[data-thread-now-line]` never appeared in a real run. The error banner is the only error element that is tied to the open thread; `[role="alert"]` alone is also used by settings forms and file viewers, and the sidebar's "Failed" label disappears once the thread is opened.
 
@@ -84,18 +84,18 @@ Why these hooks: the send button is local to the composer and carries one of the
 | rain | always (a still frame under 62rem window width) | loop, 12 s, 128 steps; intro curtain 7.5 s once |
 | roll bar: a faint 140 px band crossing the window | always | loop, 28 s, 126 steps |
 | sheen on a sidebar row | only while that thread is working | loop, 4 s |
-| Watcher opens / steps back / red jitter | composer focus / turn ends / error banner | .3 s / .45 s / 1.2 s once |
+| Watcher opens / steps back / red jitter / ear twitch / blink | composer focus / turn ends / error banner / every 8 s while idle / every 7 s while focused | .3 s / .45 s / 1.2 s once; twitch .32 s; blink .28 s |
 | bullet time: three rings | a reply is streaming | rings 3 x .26 s, completed even if the stream is shorter |
 | "Wake up, Neo…" | new-thread screen mounts | 3.6 s once |
 | the line: a scan band sweeps down the conversation | thread opens | .9 s once |
 | title glitch | thread opens | two .08 s jumps, once |
-| active sidebar row flicker | thread opens | .16 s fade once |
+| active sidebar row flicker | a row becomes the current one | .25 s stepped flicker, once |
 | the timeline flickers | thread opens | three .17 s blinks, once |
 | a row flickers in | a row mounts (new message; also a row scrolled back in, usually still off screen) | .18 s fade once; .5 s for the row whose reply is streaming |
 | the Watcher fades | a picker opens or closes | .2 s |
 | decode: bright glyphs on a dark plate step away over the new reply | a reply starts streaming | .2 s fade once |
 | scan-line wipe down the whole reply | the reply finishes streaming | .65 s once |
-| menus and popovers fade in (.16 s), dialogs power on (.32 s), tooltips wipe on (.2 s) | on open | once |
+| menus and popovers flicker in (.25 s, stepped), dialogs power on (.32 s), tooltips type on (.4 s, 12 steps) | on open | once |
 | caret fades | composer focused and empty | four soft fades, 1.6 s each |
 
 How the two triggers that are not plain mount animations work:
@@ -104,7 +104,7 @@ How the two triggers that are not plain mount animations work:
 - **Rows.** The timeline is a virtualised list that remounts rows as they scroll back in, so a mount animation on rows replays while you scroll: in a 6,000 px thread a slow scripted scroll (4 s, bottom to top) had a flickering row in view in 62 animation frames. The thread-open flicker is therefore on the timeline scroller (keyed as above), and the per-row mount flicker is .18 s, which is over before a row mounted 250 px outside the window reaches it. The same scroll now has one in view in 8 frames (2 on the way down, against 41).
 - **New reply.** The markdown root carries `data-streaming` while a message streams. The decode is an animation keyed on that attribute, so it starts once when streaming starts and is not replayed by text updates. The wipe is a *transition* that runs when the attribute goes away, so it never plays on mount or on thread open.
 
-Reduced motion: every animation and transition the theme adds is switched off by a scoped selector list (not `*`), the rain stays as a still image, both spinner selectors (`lucide-loader*` and the sidebar's `lucide-circle-dashed`) go back to T3's icon, and the Watcher's working pose is swapped for a still frame of the sprite. A `prefers-reduced-motion` query inside an SVG image did not stop the glyph cycle in the test Chrome, so the swap is done in the page CSS. Checked in the real app in idle, focused, typing, working, streaming, error and draft states: 0 running animations, and the glyph does not change.
+Reduced motion: every animation and transition the theme adds is switched off by a scoped selector list (not `*`), the rain stays as a still image, both spinner selectors (`lucide-loader*` and the sidebar's `lucide-circle-dashed`) go back to T3's icon, and the Watcher's working pose is swapped for the still focused frame of the sprite. Its twitch and blink, and the popup and dialog motion, are off as well. A `prefers-reduced-motion` query inside an SVG image did not stop the glyph cycle in the test Chrome, so the swap is done in the page CSS. Checked in the real app in idle, focused, typing, working, streaming, error and draft states: 0 running animations, and the glyph does not change.
 
 ## What changed from the Possessed kit, and why
 
@@ -119,20 +119,20 @@ Reduced motion: every animation and transition the theme adds is switched off by
 
 ## Performance
 
-Rules the CSS follows: every loop is a `transform` on its own layer; rain images are static and use `steps()`; nothing animates inside an SVG and `background-position` never animates; no filters, no blur, no animated `text-shadow`; there is no glow; `box-shadow` only draws hairline rings and flat panel shadows. Exceptions, all small: "Wake up, Neo…" animates `clip-path` and `color` on one line of text, once; the Watcher's pose changes are discrete `background-position` swaps, not animations.
+Rules the CSS follows: every loop is a `transform` on its own layer; rain images are static and use `steps()`; nothing animates inside an SVG; `background-position` only changes in `steps(1)` jumps (the Watcher's poses, twitch and blink); no filters, no blur, no animated `text-shadow`; the only glows are the overlay outlines listed under The look; `box-shadow` otherwise draws hairline rings and flat panel shadows. Exceptions, all small: "Wake up, Neo…" animates `clip-path` and `color` on one line of text, once; the Watcher's pose changes, twitch and blink are discrete `background-position` jumps, not eased animations.
 
 Running animations per state (`document.getAnimations()` in the real app):
 
 | state | running |
 |---|---|
-| thread, idle | 2: rain, roll bar (plus the intro curtain for 7.5 s after load) |
+| thread, idle | 3: rain, roll bar, the Watcher's twitch loop (plus the intro curtain for 7.5 s after load) |
 | draft, just opened | 3 + caret fades (6.4 s) + "Wake up" x2 and its two gate transitions (4 s), then 3 |
 | composer focused and empty | 4 for 6.4 s (caret fades), then 3; the Watcher's open is a .3 s one-shot |
 | typing | 3 |
 | thread working | 3 + sheen, T3's own two live-activity animations and the 14 px spinner |
 | reply streaming | 2 looping (rain, roll bar) + sheen; one-shots at the start: row flicker, decode (.2 s), rings (.78 s) |
 | turn ends | the wipe (2 transitions, .65 s), the Watcher's step back (.45 s) and the `--r` release (.8 s); back to 3 |
-| error banner appears | 3 + the red eye for 1.2 s |
+| error banner appears | 3 + the red rabbit for 1.2 s |
 | window under 992 px | 1 (roll bar) |
 | reduced motion, every state above | 0 |
 
@@ -162,10 +162,12 @@ Measured in the real app (T3 0.1.10, throwaway instance) in headless Chrome 157 
 
 The caret-blink row of round 5 (34 ms idle) was not re-measured: the blink did not start under the harness's focus emulation in this session. The draft "first seconds" rows are not comparable with round 5's 138 ms: this window starts earlier (1.4 s after the screen mounts instead of about 3.5 s) and so holds most of the type-on; measured the same way, the old trigger costs the same as the new one.
 
+The Watcher's twitch and blink, the rabbit poses and the popup motion came after these measurements and were not re-measured.
+
 What this means:
 
 - **Idle** the theme costs at most about 15 ms of main thread per 5 s, about 25 times less than the reference canvas page.
-- **The Watcher is free at rest** (idle, focused and typing are still images). While the agent works, its former glyph cycle made about 4 main frames a second and cost 55 to 120 ms per 5 s (57 in round 5, 120 in this one; measured before the cycle was removed), a third of the reference page at worst, and only for the length of the turn. Under a busy main thread it adds nothing measurable (245 ms against 250 to 255 without it).
+- **The Watcher is free at rest** (idle and focused have one sprite jump every 7 to 8 s, not measured; typing is still). While the agent works, its former glyph cycle made about 4 main frames a second and cost 55 to 120 ms per 5 s (57 in round 5, 120 in this one; measured before the cycle was removed), a third of the reference page at worst, and only for the length of the turn. Under a busy main thread it adds nothing measurable (245 ms against 250 to 255 without it).
 - **"Wake up, Neo…" is the most expensive one-shot**: `clip-path` and `color` are animated on the main thread, so the first seconds of a new-thread screen cost about 270 ms per 5 s, against 25 to 60 ms without the line and 3 ms once it has settled. It runs once per new-thread screen; if that matters, drop the type-on and keep a plain fade.
 - **Page-style rain (round 7)**, headless Chrome 157 on the MacBook, no GPU, 1440x900 at DPR 2, a test page with the theme CSS, 5 s traces: main thread 22 ms busy / 0.7 ms idle (old two-layer rain 35 / 0.3), 60 frames/s busy (old 57), no paints per step. Raster work is about 455 ms per 5 s on raster threads (old 215 to 234): the overlay layer is 3200 px taller than the window. A three-layer mask composite (the first intro design) repainted on every step and cost 17 to 20 s of raster per 5 s; the overlay keeps one mask layer for that reason.
 - **Busy**, the per-frame main-thread cost is about the same with and without the theme (about 1.2 ms per main frame). The totals are lower with the theme only because fewer frames were produced.
@@ -229,12 +231,14 @@ These depend on T3 internals that have no stable hook. If a T3 update breaks the
 - `[data-assistant-citation-viewport]`: the non-scrolling parent of the timeline scroller; its `::after` is the scan line.
 - `.chat-markdown[data-streaming]`: the streaming hook for the decode and the wipe.
 - `[data-sidebar-row]:is([aria-label*=", Working,"], [aria-label*=", Goal,"], [aria-label*=", Setting up,"])` and `.lucide-circle-dashed`: how a running thread is detected ("Setting up" while preparing, "Goal" while a goal is active). The label text is English.
+- `[data-sidebar-row$="…"]` (last hex character of the row id): picks the spinner variant. An id that does not end in a hex character keeps the first spinner.
+- `[data-sidebar-row] [role="img"][class*="text-sky-"]`: the Working and Connecting status labels (Tailwind sky classes). If T3 renames the colour class, the labels go back to sky.
 - `[data-workspace-area="conversation"]:has(~ [data-chat-composer-overlay].items-center)`: how the new-thread screen is detected for the fuller rain. `.items-center` is a Tailwind class on the composer overlay; in a thread the overlay is `inset-x-0 bottom-0` without it. `[data-timeline-loading]` (also up for 200 to 330 ms while a thread opens) is made transparent so the rain shows through.
 - `[data-timeline-row-kind] > .border-b`: the work-log hairline, a Tailwind class.
 - `[data-chat-header] li[aria-current="page"] [data-slot="workspace-breadcrumb-text"]`: the thread title.
 - `[data-chat-composer-form] :has(> * > .composer-tiptap)`: the editor's grandparent, which carries the prompt and the block caret. Its child `.text-placeholder` (a Tailwind class) is the placeholder; T3 removes it while there is text and mounts a new one when the editor is emptied.
 - `.composer-tiptap:has(> p:only-child > br:only-child)`: "the editor is empty". The typing dim uses the same test, negated.
-- `[data-chat-composer-surface]`: the Watcher's anchor. It must stay `position: static` inside a positioned card (`[data-chat-composer-main-surface]`) with free pseudos; if T3 starts using them, the eye disappears or lands elsewhere.
+- `[data-chat-composer-surface]`: the Watcher's anchor. It must stay `position: static` inside a positioned card (`[data-chat-composer-main-surface]`) with free pseudos; if T3 starts using them, the rabbit disappears or lands elsewhere.
 - `[aria-label="Stop generation"]`, `"Stopping"`, `"Queue message"`, `"Steer message"` inside the composer: "the agent is working". English labels; if one changes, the Watcher drops the working pose in that state.
 - `.chat-banner-lane [data-variant="error"]`: the thread error banner (a Tailwind-style class plus the alert's variant). If it changes, the error state never plays.
 - `html:has([data-streaming])`: bullet time. `[data-timeline-row-kind]:has([data-streaming])`: the row flicker for the streaming row.
@@ -252,7 +256,7 @@ These depend on T3 internals that have no stable hook. If a T3 update breaks the
 - **Long threads beyond 6,000 px, and a fast wheel or trackpad.** Row remounting was measured with scripted scrolls of a 6,000 px thread at 1512x900. After the change a row still flickers in view now and then (in 8 animation frames of a 4 s scroll up, user bubbles mostly). A real trackpad fling was not tried.
 - **A real GPU / the Mac app.** All numbers are from software compositing on a VPS.
 - **A long streamed reply.** The longest real stream in the test instance was about 3 s (eight paragraphs from Haiku), enough for the decode, the déjà vu beat and all three rings. A very short reply was not caught: a real one-word reply showed no `data-streaming` at all at a 250 ms sampling interval, so its rings were not seen; the "rings complete after a short stream" check used a hand-set attribute removed after 300 ms (all three iterations ran, the last ending about .8 s after the start). A multi-minute turn with several streamed segments (rings and the beat on each) was not seen.
-- **Errors other than a failed turn.** Only the provider-error banner was seen. Any other use of the banner lane with `data-variant="error"` will also turn the eye red once.
+- **Errors other than a failed turn.** Only the provider-error banner was seen. Any other use of the banner lane with `data-variant="error"` will also turn the rabbit red once.
 - **"Wake up, Neo…" inside its first 4.1 s.** Emptying the editor in that window restarts the line and it is cut off at 4.1 s, where the plain hint appears at once. Seen in the harness; judged harmless.
 - **Thread ids that do not look like `<env>:<uuid>`.** The second thread-open key reads the character after a colon. Only ids of the form `<env>:mcp:<uuid>` (threads started from the CLI) exist in the test instance; the form without `mcp:` is assumed from the draft URL.
 - **Reduced motion inside SVG images** with the real OS setting (only Chrome's emulation was tested; the theme does not rely on it for the Watcher, but the 14 px spinner swap is the only guard for the sidebar spinner).
