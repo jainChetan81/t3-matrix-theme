@@ -320,8 +320,8 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
 
 /* ---------- the Watcher: a 30 px White Rabbit on the composer's top edge ---------- */
 /* The surface is static inside the card, and its pseudos are free: ::before is the rabbit,
-   ::after the red error copy and the bullet-time rings. One sprite strip of four 30 px poses:
-   folded (idle), ears up (focused), one ear tilted (typing), red (error). */
+   ::after the red error copy and the bullet-time rings. One sprite strip of six 30 px poses:
+   folded, ears up, one ear tilted, red, ears up with eyes shut (blink), folded with one ear up (twitch). */
 [data-chat-composer-surface] {
   &::before, &::after {
     content: "";
@@ -333,8 +333,8 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
     height: 30px;
     pointer-events: none;
   }
-  /* idle: ears folded, eyes shut, still. The transition is the "done" step back to rest. */
-  &::before { background: var(--w); transition: transform .45s steps(3), opacity .2s; }
+  /* idle: ears folded, eyes shut. One ear twitch every 8 s (a sprite frame, .32 s). The transition is the "done" step back to rest. */
+  &::before { background: var(--w); transition: transform .45s steps(3), opacity .2s; animation: tw 8s steps(1) infinite; }
   /* the rings: drawn here, started by --r (see bullet time) */
   &::after {
     border: 1px solid var(--g);
@@ -347,14 +347,16 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
      of any length gets all three rings. The first item is T3's own transition. */
   transition: background-color .2s cubic-bezier(.4, 0, .2, 1), --r 0s .8s allow-discrete;
   /* composer focused: ears up once, looks at you */
-  &:has(.composer-tiptap:focus)::before { background-position-x: -30px; animation: wk .3s steps(3); }
+  &:has(.composer-tiptap:focus)::before { background-position-x: -30px; animation: wk .3s steps(3), bk 7s steps(1) infinite; }
   /* text in the composer: one ear tilts, it glances at the text */
-  &:not(:has(.composer-tiptap > p:only-child > br:only-child))::before { background-position-x: -60px; transform: translate(1px, 1px); }
+  &:not(:has(.composer-tiptap > p:only-child > br:only-child))::before { background-position-x: -60px; transform: translate(1px, 1px); animation: none; }
   /* agent working: the send button is "Stop generation", "Queue message" / "Steer message" once you type
      during the turn, and "Stopping" after stop. Katakana cycle under the rabbit, the one new loop */
   &:has([aria-label="Stop generation"], [aria-label="Stopping"], [aria-label="Queue message"], [aria-label="Steer message"])::before { background: url("{{svg:rabbit-work}}") !important; transform: scale(1.15) !important; }
 }
 @keyframes wk { 0% { transform: scaleY(.25); } }
+@keyframes tw { 0%, 88% { background-position-x: 0; } 89% { background-position-x: -150px; } 93% { background-position-x: 0; } }
+@keyframes bk { 0%, 88% { background-position-x: -30px; } 89% { background-position-x: -120px; } 93% { background-position-x: -30px; } }
 /* a "/", "@" or "$" picker is open (T3 portals it into body, over the top half of the rabbit):
    the Watcher fades out and comes back when it closes */
 html:has(> body > [data-composer-drawer-layer]) [data-chat-composer-surface] {
