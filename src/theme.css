@@ -426,12 +426,18 @@ html:has(.chat-banner-lane [data-variant="error"]) [data-chat-composer-surface]:
   box-shadow: 0 0 0 1px #347856;
 }
 svg.lucide { stroke-width: 1.7; }
-/* spinners become a mutating glyph */
+/* spinners become a mutating glyph. Each thread row picks one of four loaders by the last hex digit of its id
+   (a stable hash), so two running rows never cycle in step. Rows outside the sidebar keep the first one. */
 :is([class*="lucide-loader"], [data-sidebar-row] .lucide-circle-dashed) {
   stroke: transparent !important;
-  background: url("{{svg:spinner}}") center / contain no-repeat;
+  background: var(--sp, url("{{svg:spinner}}")) center / contain no-repeat;
   animation: none !important;
 }
+[data-sidebar-row$="4"], [data-sidebar-row$="5"], [data-sidebar-row$="6"], [data-sidebar-row$="7"] { --sp: url("{{svg:spinner-b}}"); }
+[data-sidebar-row$="8"], [data-sidebar-row$="9"], [data-sidebar-row$="a"], [data-sidebar-row$="b"] { --sp: url("{{svg:spinner-c}}"); }
+[data-sidebar-row$="c"], [data-sidebar-row$="d"], [data-sidebar-row$="e"], [data-sidebar-row$="f"] { --sp: url("{{svg:spinner-d}}"); }
+/* the Working and Connecting labels use Tailwind sky (off-palette); the theme green has at least 10:1 on every row state */
+[data-sidebar-row] [role="img"][class*="text-sky-"] { color: var(--g) !important; }
 
 /* ---------- terminal ---------- */
 [data-thread-terminal-drawer] { border-top: 1px solid #347856 !important; background: #020805; }
