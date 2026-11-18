@@ -34,7 +34,7 @@ def min_css(css):
 
 
 def svg_uri(path):
-    svg = path.read_text()
+    svg = path.read_text(encoding="utf-8")
     if not svg.lstrip().startswith("<svg") or not svg.rstrip().endswith("</svg>"):
         fail(f"{path.name} is not a complete SVG")
     svg = re.sub(r"<!--.*?-->", "", svg, flags=re.S)
@@ -60,14 +60,14 @@ def check(css):
 
 
 def main():
-    css = (SRC / "theme.css").read_text()
+    css = (SRC / "theme.css").read_text(encoding="utf-8")
     names = sorted(set(re.findall(r"\{\{svg:([a-z0-9-]+)\}\}", css)))
     # Minify before inlining, so the minifier never rewrites the inside of a data: URL.
     css = min_css(css)
     for name in names:
         css = css.replace("{{svg:%s}}" % name, svg_uri(SRC / f"{name}.svg"))
     check(css)
-    colors = json.loads((SRC / "colors.json").read_text())
+    colors = json.loads((SRC / "colors.json").read_text(encoding="utf-8"))
     theme = {
         "version": 1,
         "name": "Matrix",
@@ -81,7 +81,7 @@ def main():
     size = len(text.encode())
     if size > MAX_FILE:
         fail(f"theme file is {size} bytes, limit {MAX_FILE}")
-    OUT.write_text(text)
+    OUT.write_text(text, encoding="utf-8")
     print(f"css {len(css)}/{MAX_CSS} chars, file {size}/{MAX_FILE} bytes, svgs: {', '.join(names) or 'none'}")
 
 
