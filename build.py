@@ -67,6 +67,8 @@ def main():
     for name, value in colors["dark"].items():
         if not re.fullmatch(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?", value):
             fail(f"invalid dark color for {name}: {value!r}")
+        if len(value) == 9 and re.search(r"\{\{color:%s\}\}[0-9a-fA-F]" % name, css):
+            fail(f"{name} has alpha, so it cannot take an alpha suffix")
         css = css.replace("{{color:%s}}" % name, value)
     # Minify before inlining, so the minifier never rewrites the inside of a data: URL.
     css = min_css(css)

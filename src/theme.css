@@ -314,7 +314,8 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
   }
   /* idle: ears folded, eyes shut. One ear twitch every 8 s (a sprite frame, .32 s). The transition is the "done" step back to rest. */
   &::before { background: var(--w); transition: transform .45s steps(3), opacity .2s; animation: tw 8s steps(1) infinite; }
-    &::after {
+  /* the rings: drawn here, started by --r (see bullet time) */
+  &::after {
     border: 1px solid var(--g);
     border-radius: 50%;
     clip-path: inset(0 0 50%);
@@ -324,8 +325,8 @@ html:has([aria-current][data-sidebar-row*=":f"]) { --m: kf; }
   /* --r is set at once when a reply starts streaming and let go .8 s after it ends, so a reply
      of any length gets all three rings. The first item is T3's own transition. */
   transition: background-color .2s cubic-bezier(.4, 0, .2, 1), --r 0s .8s allow-discrete;
-    &:has(.composer-tiptap:focus)::before { background-position-x: -30px; animation: wk .3s steps(3), bk 7s steps(1) infinite; }
-    &:not(:has(.composer-tiptap > p:only-child > br:only-child))::before { background-position-x: -60px; transform: translate(1px, 1px); animation: none; }
+  &:has(.composer-tiptap:focus)::before { background-position-x: -30px; animation: wk .3s steps(3), bk 7s steps(1) infinite; }
+  &:not(:has(.composer-tiptap > p:only-child > br:only-child))::before { background-position-x: -60px; transform: translate(1px, 1px); animation: none; }
   /* agent working: the send button is "Stop generation", "Queue message" / "Steer message" once you type
      during the turn, and "Stopping" after stop. Katakana cycle under the rabbit, the one new loop */
   &:has([aria-label="Stop generation"], [aria-label="Stopping"], [aria-label="Queue message"], [aria-label="Steer message"])::before { background: url("{{svg:rabbit-work}}") !important; transform: scale(1.15) !important; }
