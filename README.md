@@ -31,8 +31,8 @@ python3 -I build.py
 | `src/rain-field.svg` | the fixed glyph field: 1450x1000, one 25 px glyph per cell (58 x 40), half-width katakana, 0-9 and A-Z in `#0affa0`. Generated with the mask by `python3 -I design/gen-page-rain.py [seed]` |
 | `src/rain-loop.svg` | the rain's alpha mask, 1450x3200 (58 x 128 cells): opaque except two windows per column, each a 14 to 28 cell trail fading to a clear head cell |
 | `src/rain.svg` | the older sparse tile, still used by the reply decode effect |
-| `src/watcher.svg` | the Watcher sprite strip, five 30 px poses drawn on the pixel grid: shut, open, narrowed, red, and a still working pose for reduced motion |
-| `src/eye.svg` | the Watcher's working pose: a wide eye with ハ, 7, エ in the iris, one still glyph (no cycle) |
+| `src/rabbit.svg` | the Watcher sprite strip, four 30 px White Rabbit poses on the pixel grid: ears folded, ears up, one ear tilted, red |
+| `src/rabbit-work.svg` | the Watcher's working pose: ears up with ア, 7, ヌ cycling under the rabbit (`steps(1)`, .75 s loop) |
 | `src/prompt.svg` | the composer prompt chevron |
 | `src/spinner.svg` | 14 px spinner from the Possessed kit: one glyph at a time, a soft cross-fade over 1.8 s, no two glyphs shown together |
 
