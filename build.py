@@ -62,12 +62,19 @@ def check(css):
 def main():
     css = (SRC / "theme.css").read_text(encoding="utf-8")
     names = sorted(set(re.findall(r"\{\{svg:([a-z0-9-]+)\}\}", css)))
+    colors = json.loads((SRC / "colors.json").read_text(encoding="utf-8"))
+    # {{color:ROLE}} takes the dark palette value, so each colour lives only in colors.json.
+    for name, value in colors["dark"].items():
+        if not re.fullmatch(r"#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?", value):
+            fail(f"invalid dark color for {name}: {value!r}")
+        css = css.replace("{{color:%s}}" % name, value)
     # Minify before inlining, so the minifier never rewrites the inside of a data: URL.
     css = min_css(css)
     for name in names:
         css = css.replace("{{svg:%s}}" % name, svg_uri(SRC / f"{name}.svg"))
+    if re.search(r"\{\{color:[^}]+\}\}", css):
+        fail("unknown color placeholder")
     check(css)
-    colors = json.loads((SRC / "colors.json").read_text(encoding="utf-8"))
     theme = {
         "version": 1,
         "name": "Matrix",

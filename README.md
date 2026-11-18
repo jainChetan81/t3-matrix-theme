@@ -22,7 +22,7 @@ python3 -I build.py
 # css 48068/50000 chars, file 53437/316384 bytes, svgs: prompt, rabbit, rabbit-work, rain, rain-field, rain-loop, spinner, spinner-b, spinner-c, spinner-d
 ```
 
-`build.py` minifies `src/theme.css` without changing quoted strings, inlines `src/*.svg` as `data:` URLs, adds colour roles from `src/colors.json`, and writes `matrix.json`. It fails if the theme exceeds a T3 limit for T3 Nightly 2026-11-15 or later: 50,000 CSS characters or 316,384 file bytes. It also rejects `url()` values other than `data:` or `#id`, plus `@import`, `image-set()`, `src()`, and backslashes.
+`build.py` minifies `src/theme.css` without changing quoted strings, replaces each `{{color:ROLE}}` with the dark palette value from `src/colors.json`, inlines `src/*.svg` as `data:` URLs, adds colour roles from `src/colors.json`, and writes `matrix.json`. It fails if the theme exceeds a T3 limit for T3 Nightly 2026-11-15 or later: 50,000 CSS characters or 316,384 file bytes. It also rejects `url()` values other than `data:` or `#id`, plus `@import`, `image-set()`, `src()`, and backslashes.
 
 | file | what |
 |---|---|

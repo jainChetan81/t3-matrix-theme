@@ -6,7 +6,7 @@ Matrix theme for T3 Code: a green digital-rain theme with a phosphor-terminal ch
 
 ## Layout
 
-- `src/theme.css`: the theme CSS, with `{{svg:NAME}}` placeholders.
+- `src/theme.css`: the theme CSS, with `{{svg:NAME}}` and `{{color:ROLE}}` placeholders. A colour that matches a role in `src/colors.json` uses its placeholder.
 - `src/*.svg`: artwork inlined as data URIs (prompt, rabbit, rabbit-work, rain, rain-field, rain-loop, spinners).
 - `src/colors.json`: `dark` palette and optional `light` palette.
 - `build.py`: builds `matrix.json` from `src/`. It minifies the CSS, inlines the SVGs, and checks the limits. No network access.
