@@ -1,9 +1,5 @@
-/* Matrix for T3 Code, "Possessed" build: page-style digital rain + a live phosphor terminal.
-   build.py replaces each svg placeholder with that file from src/ as a data: URL.
-   Perf rules: loops are transforms on their own layers (rain, roll bar, sheen on running rows) plus
-   the glyph inside the 30 px Watcher while the agent works; everything else is one-shot. No filters,
-   no glow on text blocks, nothing animates inside the rain images.
-   Rules are nested (CSS nesting) to keep the theme well inside the 50,000 character limit. */
+/* Matrix theme with digital rain and a live phosphor terminal.
+   build.py inlines SVG placeholders. Nested rules keep the theme below the size limit. */
 
 :root {
   --g: #0affa0;
@@ -74,11 +70,8 @@
 }
 
 /* ---------- thread open: the line + title glitch ---------- */
-/* Nothing above the rows remounts on a thread switch, so the one-shots are keyed on the active
-   thread id: --n from its last character, --m from the first one after a colon (ids are
-   "<env>:<thread>" or "<env>:mcp:<thread>"; 0 to 3 share the default). Each is an animation-name;
-   a different thread changes at least one of them, which restarts the effect.
-   The keyframes read their start values from the element. */
+/* Thread-switch effects use the active id's final character and first post-colon character as
+   animation names. Distinct ids restart the effect; keyframes read their start values on-element. */
 html:has([aria-current][data-sidebar-row$="0"]) { --n: k0; }
 html:has([aria-current][data-sidebar-row$="1"]) { --n: k1; }
 html:has([aria-current][data-sidebar-row$="2"]) { --n: k2; }
@@ -375,11 +368,8 @@ html:has(.chat-banner-lane [data-variant="error"]) [data-chat-composer-surface]:
 }
 @keyframes we { from { opacity: 1; } to { opacity: 0; } }
 
-/* "Wake up, Neo...": typed once over the new-thread placeholder, then the real hint comes back.
-   Keyed on the draft layout (centred overlay): a thread that is still loading has the overlay at the bottom.
-   T3 mounts a new placeholder whenever the editor is emptied, so the two animation names come from
-   the overlay, which mounts once per new-thread screen: it starts with them and drops them after
-   4.1 s (a delayed transition; a variable set by an animation may not name an animation). */
+/* Type the phrase over the new-thread placeholder; the delayed transition clears both animation
+   names after 4.1 s because an animation-set variable cannot itself name an animation. */
 [data-chat-composer-overlay].items-center {
   transition: 0s 4.1s allow-discrete;
   transition-property: --h, --u;

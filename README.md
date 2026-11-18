@@ -1,8 +1,8 @@
 # Matrix theme for T3 Code
 
-A green "digital rain" theme for T3 Code in the **Possessed** direction from the Claude Design rounds: page-style digital rain behind the whole conversation (heads writing down fixed glyph columns, as on the canvas reference page), a phosphor-terminal chrome, short one-shot effects when a thread opens or a reply arrives, and the **Watcher**, a 30 px White Rabbit on the composer that follows what you and the agent are doing. Prose stays in the app's sans on a dark pocket, so it reads comfortably all day, and the idle cost is at most about 15 ms of main thread per 5 s.
+A green digital-rain theme for T3 Code, based on the **Possessed** direction from the Claude Design rounds. Fixed glyph columns sit behind the conversation; moving windows reveal the rain trails, like the canvas reference page. Phosphor-terminal styling covers the app chrome. Thread opens and incoming replies trigger short effects. The **Watcher**, a 30 px White Rabbit on the composer, changes pose with your input and the agent's state. Assistant prose stays in the app's sans-serif font on a dark background. At idle, the theme uses at most about 15 ms of main-thread time per 5 s.
 
-Screenshots from the real app (T3 0.1.10) are in `design/verify/`; see "Verify".
+Screenshots from T3 0.1.10 are in `design/verify/`. See [Verify](#verify).
 
 ## Install
 
@@ -11,9 +11,9 @@ t3 theme set ./matrix.json            # VPS: t3 is on PATH
 ~/.t3/bin/t3 theme set ./matrix.json  # Mac
 ```
 
-Needs T3 Nightly 0.1.10-nightly.20261115 or later: the theme is about 48,000 CSS chars, and older builds reject themes over 20,000.
+Use T3 Nightly 0.1.10-nightly.20261115 or later. This theme has about 48,000 CSS characters; older builds reject themes over 20,000.
 
-`theme set` with a file publishes the theme and selects it in one step. Undo by selecting another theme: `t3 theme set pixel-quest-plus`, or a built-in: `t3-chat`, `grove`, `ocean`, `ember`, `iris`.
+`theme set` publishes and selects a theme in one step. To undo, select another theme with `t3 theme set pixel-quest-plus`, or choose a built-in theme: `t3-chat`, `grove`, `ocean`, `ember`, or `iris`.
 
 ## Build
 
@@ -22,7 +22,7 @@ python3 -I build.py
 # css 48068/50000 chars, file 53437/316384 bytes, svgs: prompt, rabbit, rabbit-work, rain, rain-field, rain-loop, spinner, spinner-b, spinner-c, spinner-d
 ```
 
-`build.py` minifies `src/theme.css` (quoted strings are left untouched), inlines `src/*.svg` as `data:` URLs, adds the colour roles from `src/colors.json` and writes `matrix.json`. It fails the build if the theme breaks a T3 limit (T3 Nightly 2026-11-15 and later): CSS over 50,000 chars, file over 316,384 bytes, a `url()` that is not `data:` or `#id`, `@import`, `image-set()`, `src()` or a backslash.
+`build.py` minifies `src/theme.css` without changing quoted strings, inlines `src/*.svg` as `data:` URLs, adds colour roles from `src/colors.json`, and writes `matrix.json`. It fails if the theme exceeds a T3 limit for T3 Nightly 2026-11-15 or later: 50,000 CSS characters or 316,384 file bytes. It also rejects `url()` values other than `data:` or `#id`, plus `@import`, `image-set()`, `src()`, and backslashes.
 
 | file | what |
 |---|---|
@@ -71,7 +71,7 @@ The `/`, `@` and `$` pickers open upward from the card's top edge and sit above 
 
 Why these hooks: the send button is local to the composer and carries one of the four running labels from send to the end of the turn, whatever is in the composer (the sidebar "Working" label and the `working` timeline row cover the same span, but one can be scrolled away and the other is virtualised). `[data-thread-now-line]` never appeared in a real run. The error banner is the only error element that is tied to the open thread; `[role="alert"]` alone is also used by settings forms and file viewers, and the sidebar's "Failed" label disappears once the thread is opened.
 
-## Matrix touches (round 4)
+## Matrix touches from round 4
 
 - **Bullet time.** While a reply streams (`html:has([data-streaming])`) three rings leave the Watcher (.26 s each, .78 s in all, upper half only so they never cross the composer text). The rings are started by a variable, `--r`, that is set the moment streaming starts and released .8 s after it ends (a delayed transition), so a reply that streams for less than .78 s still gets all three.
 - **"Wake up, Neo…"** On the new-thread screen only (keyed on the centred composer overlay, so a thread that is still loading does not start it) the line types itself over the placeholder (13 steps), holds, and then fades as T3's real hint ("Ask anything. @ files, $ skills, / commands") fades in. 3.6 s in total, once per new-thread screen. T3 mounts a new placeholder every time the editor is emptied, which used to replay the line; the two animation names now come from the composer overlay, which mounts once per screen, starts with them (`@starting-style`) and drops them after 4.1 s. Typing and clearing after that shows the plain hint. Emptying the editor inside those first 4.1 s restarts the line, and it is cut off at 4.1 s.
@@ -106,7 +106,7 @@ How the two triggers that are not plain mount animations work:
 
 Reduced motion: every animation and transition the theme adds is switched off by a scoped selector list (not `*`), the rain stays as a still image, both spinner selectors (`lucide-loader*` and the sidebar's `lucide-circle-dashed`) go back to T3's icon, and the Watcher's working pose is swapped for the still focused frame of the sprite. Its twitch and blink, and the popup and dialog motion, are off as well. A `prefers-reduced-motion` query inside an SVG image did not stop the glyph cycle in the test Chrome, so the swap is done in the page CSS. Checked in the real app in idle, focused, typing, working, streaming, error and draft states: 0 running animations, and the glyph does not change.
 
-## What changed from the Possessed kit, and why
+## Changes from the Possessed kit
 
 - **Rain under prose is masked down** instead of running at full strength behind 87% pockets, and the pockets have no 34 px blurred shadow (a paint cost on every row while scrolling).
 - **The sidebar rain is still.** The kit animated two more layers there; a still field gives the same texture with no loop.
@@ -119,7 +119,9 @@ Reduced motion: every animation and transition the theme adds is switched off by
 
 ## Performance
 
-Rules the CSS follows: every loop is a `transform` on its own layer; rain images are static and use `steps()`; nothing animates inside an SVG; `background-position` only changes in `steps(1)` jumps (the Watcher's poses, twitch and blink); no filters, no blur, no animated `text-shadow`; the only glows are the overlay outlines listed under The look; `box-shadow` otherwise draws hairline rings and flat panel shadows. Exceptions, all small: "Wake up, Neo…" animates `clip-path` and `color` on one line of text, once; the Watcher's pose changes, twitch and blink are discrete `background-position` jumps, not eased animations.
+The CSS keeps each loop to a `transform` on its own layer. Rain images stay static and use `steps()`. Nothing animates inside an SVG. The Watcher's poses, twitch, and blink change `background-position` in `steps(1)` jumps. The theme uses no filters, blur, or animated `text-shadow`. Only overlay outlines glow, as described in [The look](#the-look). Other `box-shadow` rules draw hairline rings and flat panel shadows.
+
+One exception animates `clip-path` and `color`: the one-time "Wake up, Neo…" line. The Watcher's pose changes, twitch, and blink also use discrete jumps rather than eased motion.
 
 Running animations per state (`document.getAnimations()` in the real app):
 
@@ -164,16 +166,16 @@ The caret-blink row of round 5 (34 ms idle) was not re-measured: the blink did n
 
 The Watcher's twitch and blink, the rabbit poses and the popup motion came after these measurements and were not re-measured.
 
-What this means:
+What the measurements show:
 
-- **Idle** the theme costs at most about 15 ms of main thread per 5 s, about 25 times less than the reference canvas page.
+- At idle, the theme uses at most about 15 ms of main-thread time per 5 s, about 25 times less than the reference canvas page.
 - **The Watcher is free at rest** (idle and focused have one sprite jump every 7 to 8 s, not measured; typing is still). While the agent works, its former glyph cycle made about 4 main frames a second and cost 55 to 120 ms per 5 s (57 in round 5, 120 in this one; measured before the cycle was removed), a third of the reference page at worst, and only for the length of the turn. Under a busy main thread it adds nothing measurable (245 ms against 250 to 255 without it).
 - **"Wake up, Neo…" is the most expensive one-shot**: `clip-path` and `color` are animated on the main thread, so the first seconds of a new-thread screen cost about 270 ms per 5 s, against 25 to 60 ms without the line and 3 ms once it has settled. It runs once per new-thread screen; if that matters, drop the type-on and keep a plain fade.
 - **Page-style rain (round 7)**, headless Chrome 157 on the MacBook, no GPU, 1440x900 at DPR 2, a test page with the theme CSS, 5 s traces: main thread 22 ms busy / 0.7 ms idle (old two-layer rain 35 / 0.3), 60 frames/s busy (old 57), no paints per step. Raster work is about 455 ms per 5 s on raster threads (old 215 to 234): the overlay layer is 3200 px taller than the window. A three-layer mask composite (the first intro design) repainted on every step and cost 17 to 20 s of raster per 5 s; the overlay keeps one mask layer for that reason.
 - **Busy**, the per-frame main-thread cost is about the same with and without the theme (about 1.2 ms per main frame). The totals are lower with the theme only because fewer frames were produced.
 - **Frame rate under load (round 6, the two-layer rain)** was 45 to 51 frames/s in this GPU-less Chrome, against 60 with no theme. Round 5 measured 24 to 41. The cause is compositing the two full-area rain layers on the CPU. Round 6 tried six cheap changes against the same build, in pairs: no mask on either layer, no mask on the far layer, `contain: strict` on the layers, no roll bar, no rain at all, and no `will-change: transform` on the layers. Only the last one helped beyond noise: 50.2 frames/s on average against 44.4 with the hint, ahead in 7 of 8 pairs (38 to 56 against 41 to 49), with no change at idle. The hint is gone; the running transform animation still gives each layer its own compositor layer. The other five were within noise (no rain at all measured 36 to 59) and were not kept. A real GPU composites these layers in well under a millisecond, but it has not been measured on one; if the Mac shows dropped frames while streaming, the first thing to try is removing the far layer.
 - **Roll bar.** A smooth (linear) roll bar made the compositor draw 46 frames/s at idle, against 8 without it. Stepped (`steps(72)`, about 4.5 moves a second while it crosses) it draws 15 frames/s and adds no measurable main-thread time (16.7 and 14.9 ms with it, 16.7 and 14.2 without), so it stays as a loop.
-- The reference page was measured over the network from `https://chetan-examples.vercel.app/matrix`.
+- The reference page was measured over the network at `https://chetan-examples.vercel.app/matrix`.
 
 ## Verify
 
